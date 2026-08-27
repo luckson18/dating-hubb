@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Accessible visible focus styles */
+  :focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+}
+
+/* Custom Accessibility Themes */
+.theme-high-contrast-dark {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.theme-high-contrast-dark * {
+  border-color: #52525b !important;
+}
+
+.theme-high-contrast-light {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+}
+
+.theme-high-contrast-light div,
+.theme-high-contrast-light article,
+.theme-high-contrast-light section,
+.theme-high-contrast-light aside {
+  background-color: #f4f4f5 !important;
+  color: #09090b !important;
+  border-color: #18181b !important;
+}
+
+.theme-yellow-black {
+  background-color: #000000 !important;
+  color: #fde047 !important;
+}
+
+.theme-yellow-black div,
+.theme-yellow-black article,
+.theme-yellow-black section,
+.theme-yellow-black aside {
+  background-color: #000000 !important;
+  color: #fde047 !important;
+  border-color: #eab308 !important;
+}
+
+.theme-yellow-black h1,
+.theme-yellow-black h2,
+.theme-yellow-black h3,
+.theme-yellow-black p,
+.theme-yellow-black span,
+.theme-yellow-black label {
+  color: #fef08a !important;
+}
+
+.theme-dyslexia-friendly {
+  font-family: 'Comic Sans MS', 'Open Dyslexic', Arial, sans-serif !important;
+  letter-spacing: 0.05em !important;
+  word-spacing: 0.1em !important;
+  line-height: 1.8 !important;
+}
+
+/* Text Scaling */
+.text-scale-large {
+  font-size: 115% !important;
+}
+
+.text-scale-extra-large {
+  font-size: 130% !important;
+}
+
+/* Large Touch Targets */
+.large-touch-targets button,
+.large-touch-targets a,
+.large-touch-targets input,
+.large-touch-targets select {
+  min-height: 48px !important;
+  min-width: 48px !important;
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 150, 0.4);
+  border-radius: 9999px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
