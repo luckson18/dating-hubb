@@ -5,7 +5,6 @@ import {
   ShieldCheck, 
   MessageCircle, 
   Heart, 
-  Volume2, 
   Clock,
   UserCheck,
   CheckCircle2,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { StatusUpdate, InterestedPartner } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface InterestedPartnersModalProps {
   isOpen?: boolean;
@@ -55,16 +53,6 @@ export const InterestedPartnersModal: React.FC<InterestedPartnersModalProps> = (
     if (onRecallInterest) {
       onRecallInterest(status.id);
     }
-    speechService.speak("Your interest expression has been recalled and removed.");
-  };
-
-  const handleReadAloud = () => {
-    if (partners.length === 0) {
-      speechService.speak(`No partners have expressed interest in this post yet.`);
-      return;
-    }
-    const names = partners.map(p => `${p.userName}, compatibility ${p.compatibilityScore || 85} percent`).join('. ');
-    speechService.speak(`${partners.length} interested partners on this post: ${names}`);
   };
 
   return (
@@ -99,14 +87,6 @@ export const InterestedPartnersModal: React.FC<InterestedPartnersModalProps> = (
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              onClick={handleReadAloud}
-              aria-label="Read list of interested partners aloud"
-              className="p-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-cyan-300 hover:text-white transition-colors"
-              title="Read Aloud"
-            >
-              <Volume2 className="w-4 h-4" />
-            </button>
             <button
               onClick={() => {
                 audioHaptics.triggerNavigationClick();

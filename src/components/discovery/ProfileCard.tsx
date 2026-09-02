@@ -3,8 +3,6 @@ import {
   Heart, 
   X, 
   Star, 
-  Volume2, 
-  VolumeX, 
   Video, 
   MapPin, 
   CheckCircle2, 
@@ -24,7 +22,6 @@ import {
 } from 'lucide-react';
 import { UserProfile, CompatibilityInsight } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 import { calculateCompatibility } from '../../data/mockProfiles';
 import { getSearchMatchReasons } from '../../utils/searchMatching';
 import { CompatibilityScoreIndicator } from './CompatibilityScoreIndicator';
@@ -55,37 +52,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   searchQuery = ''
 }) => {
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [isExpandedDetails, setIsExpandedDetails] = useState(Boolean(searchQuery.trim()));
-  const [isNarrating, setIsNarrating] = useState(false);
+  const [isExpandedDetails, setIsExpandedDetails] = useState(false);
 
   const compatibility: CompatibilityInsight = calculateCompatibility(currentUser, profile);
   const searchMatchReasons = searchQuery.trim() ? getSearchMatchReasons(profile, searchQuery) : [];
-
-  const handleReadProfileAloud = () => {
-    if (isNarrating) {
-      speechService.stopSpeaking();
-      setIsNarrating(false);
-      return;
-    }
-
-    setIsNarrating(true);
-    audioHaptics.triggerNavigationClick();
-
-    const narrationScript = `
-      Profile of ${profile.name}, ${profile.age} years old, ${profile.gender}, pronouns ${profile.pronouns}.
-      Located ${profile.locationCity}. Compatibility score: ${compatibility.scorePercent} percent, with ${compatibility.hobbiesBreakdown.totalShared} shared hobbies and ${compatibility.demographics.overallDemographicPercent} percent demographic alignment.
-      Occupation: ${profile.jobTitle} at ${profile.companyOrField}.
-      Bio: ${profile.bio}.
-      Physical and personal attributes: Height ${profile.heightFeet}, complexion ${profile.complexion}, ethnicity ${profile.raceEthnicity}, religion ${profile.religion}, education ${profile.education}.
-      Hobbies: ${profile.hobbies.join(', ')}.
-      Relationship goal: ${profile.relationshipGoal}.
-      Accessibility badges: ${profile.accessibilityBadges.join(', ')}.
-    `;
-
-    speechService.speak(narrationScript, () => {
-      setIsNarrating(false);
-    });
-  };
 
   const nextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,14 +81,24 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
     >
       {/* Top Image & Media Carousel */}
       <div className="relative h-[380px] sm:h-[430px] w-full bg-neutral-950 overflow-hidden select-none">
-        <img
-          src={profile.photos[photoIndex]}
-          alt={`Photo ${photoIndex + 1} of ${profile.name}`}
-          className={`w-full h-full object-cover transition-transform duration-300 ${
-            isBiometricLocked && profile.isPrivateProfile ? 'blur-xl scale-110' : ''
-          }`}
-          referrerPolicy="no-referrer"
-        />
+        {profile.photos && profile.photos.length > 0 && profile.photos[photoIndex] ? (
+          <img
+            src={profile.photos[photoIndex]}
+            alt={`Photo ${photoIndex + 1} of ${profile.name}`}
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              isBiometricLocked && profile.isPrivateProfile ? 'blur-xl scale-110' : ''
+            }`}
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 flex flex-col items-center justify-center text-center p-6 select-none">
+            <div className="w-24 h-24 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center text-3xl font-extrabold text-neutral-300 shadow-inner mb-3">
+              {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <span className="text-xs font-semibold text-neutral-400">Authentic User Account</span>
+            <span className="text-[10px] text-neutral-500 mt-1">No profile photos uploaded yet</span>
+          </div>
+        )}
 
         {/* Gradient Overlay for Readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-black/60 pointer-events-none" />
@@ -171,20 +151,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 pointer-events-auto">
-            {/* Screen Reader Verbal Readout Action */}
-            <button
-              id={`btn-read-aloud-${profile.id}`}
-              onClick={handleReadProfileAloud}
-              aria-label={isNarrating ? "Stop reading profile" : `Listen to screen reader audio narration of ${profile.name}'s profile`}
-              className={`p-2 rounded-full backdrop-blur-md shadow-lg transition-all border ${
-                isNarrating 
-                  ? 'bg-rose-600 text-white border-rose-400 animate-pulse' 
-                  : 'bg-black/60 hover:bg-black/80 text-white border-white/20'
-              }`}
-            >
-              {isNarrating ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-cyan-300" />}
-            </button>
-
             {/* AI Smart Opener Button */}
             {onOpenSmartOpener && (
               <button
@@ -237,28 +203,34 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           </div>
         </div>
 
-        {/* Card Name, Age & Quick Headline */}
+        {/* Card Name, Age, Username & Grouped Attributes */}
         <div className="absolute bottom-4 left-4 right-4 z-10">
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-2xl font-black text-white tracking-tight">
-              {profile.name}, {profile.age}
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-1.5">
+              {profile.name}{profile.age > 0 ? `, ${profile.age}` : ''}
+              {profile.verified && (
+                <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" title="Verified Profile" />
+              )}
             </h2>
-            {profile.verified && (
-              <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" title="Verified Profile" />
+            {profile.username && (
+              <span className="text-xs font-semibold text-neutral-300 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full border border-neutral-700">
+                @{profile.username}
+              </span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-300 font-medium">
-            <span className="bg-neutral-800/80 px-2 py-0.5 rounded-md border border-neutral-700 text-neutral-200">
-              {profile.gender} ({profile.pronouns})
-            </span>
-            <span className="flex items-center gap-1 bg-neutral-800/80 px-2 py-0.5 rounded-md border border-neutral-700">
-              <MapPin className="w-3 h-3 text-rose-400" />
-              {profile.locationCity}
-            </span>
-            <span className="bg-neutral-800/80 px-2 py-0.5 rounded-md border border-neutral-700 text-emerald-300 font-semibold">
-              {profile.heightFeet} ({profile.heightCm} cm)
-            </span>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-neutral-300 font-medium">
+            {profile.pronouns && (
+              <span className="bg-neutral-900/90 px-2 py-0.5 rounded-md border border-neutral-700/80 text-neutral-200">
+                {profile.pronouns}
+              </span>
+            )}
+            {profile.locationCity && (
+              <span className="flex items-center gap-1 bg-neutral-900/90 px-2 py-0.5 rounded-md border border-neutral-700/80">
+                <MapPin className="w-3 h-3 text-rose-400" />
+                {profile.locationCity}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -291,14 +263,16 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
         )}
 
         {/* Bio Text */}
-        <div>
-          <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-normal">
-            {profile.bio}
-          </p>
-        </div>
+        {profile.bio && (
+          <div>
+            <p className="text-xs sm:text-sm text-neutral-200 leading-relaxed font-normal">
+              {profile.bio}
+            </p>
+          </div>
+        )}
 
         {/* Accessibility & Inclusive Badges */}
-        {profile.accessibilityBadges.length > 0 && (
+        {profile.accessibilityBadges && profile.accessibilityBadges.length > 0 && (
           <div>
             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
               Accessibility & Community
@@ -318,33 +292,36 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
         )}
 
         {/* Hobbies & Passions with Shared Highlight */}
-        <div>
-          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
-            Hobbies & Interests
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {profile.hobbies.map((hobby, i) => {
-              const isShared = currentUser.hobbies.includes(hobby);
-              return (
-                <span
-                  key={i}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-xl border flex items-center gap-1 ${
-                    isShared
-                      ? 'bg-rose-950/60 text-rose-300 border-rose-500/50 font-bold'
-                      : 'bg-neutral-800/60 text-neutral-300 border-neutral-700'
-                  }`}
-                >
-                  {isShared && <Sparkles className="w-3 h-3 text-rose-400" />}
-                  {hobby}
-                </span>
-              );
-            })}
+        {profile.hobbies && profile.hobbies.length > 0 && (
+          <div>
+            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">
+              Hobbies & Interests
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {profile.hobbies.map((hobby, i) => {
+                const isShared = currentUser?.hobbies?.includes(hobby);
+                return (
+                  <span
+                    key={i}
+                    className={`text-[11px] font-medium px-2.5 py-1 rounded-xl border flex items-center gap-1 ${
+                      isShared
+                        ? 'bg-rose-950/60 text-rose-300 border-rose-500/50 font-bold'
+                        : 'bg-neutral-800/60 text-neutral-300 border-neutral-700'
+                    }`}
+                  >
+                    {isShared && <Sparkles className="w-3 h-3 text-rose-400" />}
+                    {hobby}
+                  </span>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Detailed Personal Attributes Drawer (Height, Complexion, Race, Religion, Job, Education) */}
         <div className="pt-2 border-t border-neutral-800">
           <button
+            type="button"
             id={`btn-toggle-details-${profile.id}`}
             onClick={() => {
               setIsExpandedDetails(!isExpandedDetails);
@@ -355,61 +332,125 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           >
             <span className="flex items-center gap-1.5">
               <Layers className="w-4 h-4" />
-              {isExpandedDetails ? 'Hide Detailed Background & Attributes' : 'View Full Profile Details (Height, Race, Religion, Job...)'}
+              {isExpandedDetails ? 'Hide Detailed Background & Attributes' : 'View Profile Details'}
             </span>
             {isExpandedDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
           {isExpandedDetails && (
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs bg-neutral-950/60 p-3 rounded-2xl border border-neutral-800 animate-in fade-in duration-150">
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Occupation</span>
-                <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
-                  <Briefcase className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                  <span className="truncate">{profile.jobTitle}</span>
-                </span>
-              </div>
+            <div className="mt-3">
+              {Boolean(
+                profile.heightFeet ||
+                (profile.heightCm && profile.heightCm > 0) ||
+                (profile.weightKg && profile.weightKg > 0) ||
+                profile.jobTitle ||
+                profile.companyOrField ||
+                profile.education ||
+                profile.complexion ||
+                profile.raceEthnicity ||
+                profile.religion ||
+                profile.nationality ||
+                (profile.languages && profile.languages.length > 0) ||
+                profile.relationshipGoal
+              ) ? (
+                <div className="grid grid-cols-2 gap-2 text-xs bg-neutral-950/60 p-3 rounded-2xl border border-neutral-800 animate-in fade-in duration-150">
+                  {(profile.heightFeet || (profile.heightCm && profile.heightCm > 0)) && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Height</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">
+                        {profile.heightFeet || `${profile.heightCm} cm`}
+                      </span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Education</span>
-                <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
-                  <GraduationCap className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  <span className="truncate">{profile.education}</span>
-                </span>
-              </div>
+                  {profile.weightKg && profile.weightKg > 0 ? (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Weight</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">
+                        {profile.weightKg} kg
+                      </span>
+                    </div>
+                  ) : null}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Complexion</span>
-                <span className="font-semibold text-neutral-100 block mt-0.5">{profile.complexion}</span>
-              </div>
+                  {profile.jobTitle && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Occupation</span>
+                      <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
+                        <Briefcase className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                        <span className="truncate">{profile.jobTitle}</span>
+                      </span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Race & Ethnicity</span>
-                <span className="font-semibold text-neutral-100 block mt-0.5">{profile.raceEthnicity}</span>
-              </div>
+                  {profile.companyOrField && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Industry / Field</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5 truncate">
+                        {profile.companyOrField}
+                      </span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Religion & Beliefs</span>
-                <span className="font-semibold text-neutral-100 block mt-0.5">{profile.religion}</span>
-              </div>
+                  {profile.education && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Education</span>
+                      <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="truncate">{profile.education}</span>
+                      </span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
-                <span className="text-[10px] text-neutral-400 block font-medium">Nationality</span>
-                <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
-                  <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>{profile.nationality}</span>
-                </span>
-              </div>
+                  {profile.complexion && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Complexion</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">{profile.complexion}</span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80 col-span-2">
-                <span className="text-[10px] text-neutral-400 block font-medium">Languages Spoken</span>
-                <span className="font-semibold text-neutral-100 block mt-0.5">{profile.languages.join(' • ')}</span>
-              </div>
+                  {profile.raceEthnicity && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Race & Ethnicity</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">{profile.raceEthnicity}</span>
+                    </div>
+                  )}
 
-              <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80 col-span-2">
-                <span className="text-[10px] text-neutral-400 block font-medium">Relationship Goal</span>
-                <span className="font-semibold text-indigo-300 block mt-0.5">{profile.relationshipGoal}</span>
-              </div>
+                  {profile.religion && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Religion & Beliefs</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">{profile.religion}</span>
+                    </div>
+                  )}
+
+                  {profile.nationality && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Nationality</span>
+                      <span className="font-semibold text-neutral-100 flex items-center gap-1 mt-0.5">
+                        <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>{profile.nationality}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {profile.languages && profile.languages.length > 0 && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80 col-span-2">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Languages Spoken</span>
+                      <span className="font-semibold text-neutral-100 block mt-0.5">{profile.languages.join(' • ')}</span>
+                    </div>
+                  )}
+
+                  {profile.relationshipGoal && (
+                    <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800/80 col-span-2">
+                      <span className="text-[10px] text-neutral-400 block font-medium">Relationship Goal</span>
+                      <span className="font-semibold text-indigo-300 block mt-0.5">{profile.relationshipGoal}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-neutral-950/60 border border-neutral-800 text-center text-xs text-neutral-400 italic">
+                  No additional background details provided yet.
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -8,12 +8,10 @@ import {
   MessageCircle, 
   Clock, 
   CheckCheck,
-  Volume2,
   Trash2
 } from 'lucide-react';
 import { PartnerNotification } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface NotificationsModalProps {
   isOpen?: boolean;
@@ -57,15 +55,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
-  const handleReadAloud = () => {
-    if (notifications.length === 0) {
-      speechService.speak('You have no new notifications.');
-      return;
-    }
-    const text = notifications.map(n => `${n.senderName} is interested in your post: ${n.note || ''}`).join('. ');
-    speechService.speak(`You have ${notifications.length} notifications. ${text}`);
-  };
-
   return (
     <div
       role="dialog"
@@ -100,14 +89,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              onClick={handleReadAloud}
-              aria-label="Read notifications aloud"
-              className="p-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-cyan-300 hover:text-white"
-              title="Read Aloud"
-            >
-              <Volume2 className="w-4 h-4" />
-            </button>
             <button
               onClick={() => {
                 audioHaptics.triggerNavigationClick();

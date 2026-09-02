@@ -37,46 +37,29 @@ class SpeechService {
   }
 
   /**
-   * Reads text aloud using Web SpeechSynthesis
+   * Speech synthesis narration disabled per user preference
    */
-  public speak(text: string, onEnd?: () => void, priority = true) {
-    if (!this.synth) return;
-    if (priority) {
-      this.synth.cancel(); // cancel previous narration
+  public speak(_text: string, onEnd?: () => void, _priority = true) {
+    if (this.synth) {
+      try {
+        this.synth.cancel();
+      } catch {}
     }
-
-    const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
-    if (!cleanText) return;
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = this.speechRate;
-    utterance.pitch = 1.0;
-    
-    // Pick natural English voice if available
-    const voices = this.synth.getVoices();
-    const naturalVoice = voices.find(v => (v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel'))));
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
-    }
-
     if (onEnd) {
-      utterance.onend = onEnd;
+      setTimeout(() => onEnd(), 0);
     }
-    utterance.onerror = () => {
-      if (onEnd) onEnd();
-    };
-
-    this.synth.speak(utterance);
   }
 
   public stopSpeaking() {
     if (this.synth) {
-      this.synth.cancel();
+      try {
+        this.synth.cancel();
+      } catch {}
     }
   }
 
   public isSpeaking(): boolean {
-    return !!this.synth && this.synth.speaking;
+    return false;
   }
 
   /**

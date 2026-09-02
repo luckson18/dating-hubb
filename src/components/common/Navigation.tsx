@@ -1,8 +1,8 @@
 import React from 'react';
-import { Heart, Grid, MessageCircle, Activity, User, Sliders, Calendar } from 'lucide-react';
+import { Heart, Grid, MessageCircle, Activity, Calendar, MoreHorizontal } from 'lucide-react';
 import { audioHaptics } from '../../services/audioHaptics';
 
-export type AppTab = 'discover' | 'explore' | 'requests' | 'status' | 'messages' | 'profile';
+export type AppTab = 'discover' | 'explore' | 'requests' | 'status' | 'messages' | 'settings' | 'profile';
 
 interface NavigationProps {
   activeTab: AppTab;
@@ -30,18 +30,18 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'requests', label: 'Dates', icon: Calendar, badge: requestsCount },
     { id: 'status', label: 'Statuses', icon: Activity },
     { id: 'messages', label: 'Messages', icon: MessageCircle, badge: unreadCount },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'settings', label: 'Settings', icon: MoreHorizontal },
   ];
 
   return (
     <nav 
       aria-label="Main Application Navigation"
-      className="fixed bottom-0 inset-x-0 bg-neutral-950/90 border-t border-neutral-800/80 backdrop-blur-xl z-40 py-1 px-2 select-none"
+      className="fixed bottom-0 inset-x-0 bg-neutral-950/95 border-t border-neutral-800/80 backdrop-blur-xl z-40 py-1 px-2 select-none"
     >
       <div className="max-w-lg mx-auto flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+          const isActive = activeTab === tab.id || (tab.id === 'settings' && activeTab === 'profile');
 
           return (
             <button
@@ -53,7 +53,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               }}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all relative min-w-[50px] cursor-pointer ${
+              className={`flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all relative min-w-[48px] cursor-pointer ${
                 isActive 
                   ? 'text-rose-400 font-bold scale-105' 
                   : 'text-neutral-400 hover:text-neutral-200'
@@ -80,4 +80,3 @@ export const Navigation: React.FC<NavigationProps> = ({
     </nav>
   );
 };
-

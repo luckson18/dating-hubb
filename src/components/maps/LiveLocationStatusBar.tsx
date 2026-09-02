@@ -14,7 +14,7 @@ export const LiveLocationStatusBar: React.FC<LiveLocationStatusBarProps> = ({
   reverseData,
   onOpenGeoModal
 }) => {
-  const cityName = reverseData?.displayName || reverseData?.city || 'San Francisco, CA';
+  const cityName = reverseData?.displayName || reverseData?.city || (currentLocation ? `${currentLocation.lat.toFixed(2)}, ${currentLocation.lng.toFixed(2)}` : 'Location not set');
   const neighborhood = reverseData?.neighborhood;
 
   return (
@@ -42,10 +42,11 @@ export const LiveLocationStatusBar: React.FC<LiveLocationStatusBarProps> = ({
           audioHaptics.triggerNavigationClick();
           onOpenGeoModal();
         }}
-        className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 hover:text-white border border-neutral-700/60 text-[11px] font-medium flex items-center gap-1.5 transition shrink-0 active:scale-95 text-rose-300"
+        className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 hover:text-white border border-neutral-700/60 text-[11px] font-medium flex items-center gap-1.5 transition shrink-0 active:scale-95 text-rose-300 cursor-pointer"
       >
         <LocateFixed className="w-3 h-3 text-rose-400" />
-        <span>Location & Travel Matrix</span>
+        <span className="hidden sm:inline">Location & Travel</span>
+        <span className="sm:hidden">Range</span>
         <ChevronRight className="w-3 h-3 opacity-60" />
       </button>
     </div>

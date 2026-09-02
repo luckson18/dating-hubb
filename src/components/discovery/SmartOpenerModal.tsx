@@ -3,8 +3,6 @@ import {
   Sparkles, 
   Send, 
   X, 
-  Volume2, 
-  VolumeX, 
   Copy, 
   Check, 
   RefreshCw, 
@@ -22,7 +20,6 @@ import {
 import { UserProfile, SmartOpenerSuggestion, SmartOpenerTone, SmartOpenerCategory } from '../../types/dating';
 import { smartOpenerService } from '../../services/smartOpenerService';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface SmartOpenerModalProps {
   isOpen: boolean;
@@ -49,8 +46,6 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [selectedOpenerText, setSelectedOpenerText] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [isOverallSpeaking, setIsOverallSpeaking] = useState(false);
 
   // Load openers on modal open
   useEffect(() => {
@@ -94,33 +89,7 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
     navigator.clipboard.writeText(opener.openerText);
     setCopiedId(opener.id);
     audioHaptics.triggerNavigationClick();
-    speechService.speak('Copied to clipboard');
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleListenOpener = (opener: SmartOpenerSuggestion) => {
-    if (speakingId === opener.id) {
-      speechService.stopSpeaking();
-      setSpeakingId(null);
-      return;
-    }
-
-    setSpeakingId(opener.id);
-    speechService.speak(opener.openerText, () => setSpeakingId(null));
-  };
-
-  const handleListenAll = () => {
-    if (isOverallSpeaking) {
-      speechService.stopSpeaking();
-      setIsOverallSpeaking(false);
-      return;
-    }
-
-    setIsOverallSpeaking(true);
-    const text = `Smart Opener suggestions for ${matchedUser.name}. ${openers
-      .map((o, idx) => `Option ${idx + 1}, ${o.categoryLabel}: ${o.openerText}`)
-      .join(' ')}`;
-    speechService.speak(text, () => setIsOverallSpeaking(false));
   };
 
   const handleUseOpener = (text: string) => {
@@ -136,7 +105,6 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
     } else {
       onSelectOpener(text);
     }
-    speechService.speak(`Smart opener sent to ${matchedUser.name.split(' ')[0]}!`);
     onClose();
   };
 
@@ -192,21 +160,7 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleListenAll}
-              title={isOverallSpeaking ? 'Stop Narration' : 'Read Openers Aloud'}
-              className={`p-2 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
-                isOverallSpeaking
-                  ? 'bg-amber-500 text-black border-amber-400 animate-pulse font-bold'
-                  : 'bg-neutral-800 text-neutral-300 hover:text-white border-neutral-700'
-              }`}
-            >
-              {isOverallSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-sky-400" />}
-              <span className="hidden sm:inline">{isOverallSpeaking ? 'Pause' : 'Listen'}</span>
-            </button>
-
-            <button
               onClick={() => {
-                speechService.stopSpeaking();
                 onClose();
               }}
               className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-700 transition-colors"
@@ -328,7 +282,6 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
               {openers.map((opener, idx) => {
                 const isSelected = selectedOpenerText === opener.openerText;
                 const isCopied = copiedId === opener.id;
-                const isSpeaking = speakingId === opener.id;
 
                 return (
                   <div
@@ -352,19 +305,6 @@ export const SmartOpenerModal: React.FC<SmartOpenerModalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleListenOpener(opener)}
-                          title={isSpeaking ? 'Stop Reading' : 'Read Aloud'}
-                          className={`p-1.5 rounded-lg border text-xs transition-colors ${
-                            isSpeaking
-                              ? 'bg-amber-500 text-black border-amber-400 animate-pulse'
-                              : 'bg-neutral-900 text-neutral-400 hover:text-white border-neutral-800'
-                          }`}
-                        >
-                          {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-sky-400" />}
-                        </button>
-
                         <button
                           type="button"
                           onClick={() => handleCopyOpener(opener)}

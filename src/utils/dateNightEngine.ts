@@ -480,7 +480,7 @@ export function generateDateNightSuggestions(
   }
 
   // Location string description
-  const locationString = userB.locationCity || userA.locationCity || 'San Francisco Bay Area';
+  const locationString = userB.locationCity || userA.locationCity || 'Local Area';
 
   // Generate customized icebreaker topic based on matches
   let icebreaker = `Ask ${userB.name.split(' ')[0]} about what inspired their passion for ${allIdentifiedInterests[0] || 'accessibility and design'}!`;

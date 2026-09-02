@@ -7,7 +7,8 @@ import {
   Religion, 
   EducationLevel, 
   RelationshipGoal,
-  VideoBio
+  VideoBio,
+  StatusUpdate
 } from '../../types/dating';
 import { 
   User, 
@@ -28,11 +29,22 @@ import {
   Eye,
   TrendingUp,
   ArrowRight,
-  LogOut
+  LogOut,
+  Zap,
+  Share2,
+  CheckCircle2,
+  ExternalLink,
+  Trash2,
+  Star,
+  Image as ImageIcon,
+  Database
 } from 'lucide-react';
 import { audioHaptics } from '../../services/audioHaptics';
+import { speechService } from '../../services/speechService';
 import { PersonalAccessibilityReportModal } from './PersonalAccessibilityReportModal';
+import { QuickShareStatusCard } from './QuickShareStatusCard';
 import { generatePersonalAccessibilityReport } from '../../utils/accessibilityAudit';
+import { PhotoUploadInput } from '../common/PhotoUploadInput';
 
 interface MyProfileEditorProps {
   user: UserProfile;
@@ -40,6 +52,9 @@ interface MyProfileEditorProps {
   onOpenVideoStudio: () => void;
   onTriggerBiometricLock: () => void;
   onLogout?: () => void;
+  onPostStatus?: (status: Omit<StatusUpdate, 'id' | 'createdAt' | 'likesCount'>) => void;
+  onNavigateToFeed?: () => void;
+  onOpenAdminDb?: () => void;
 }
 
 const GENDERS: Gender[] = ['Woman', 'Man', 'Non-binary', 'Agender', 'Genderfluid', 'Transgender', 'Other'];
@@ -116,12 +131,19 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
   onSaveProfile,
   onOpenVideoStudio,
   onTriggerBiometricLock,
-  onLogout
+  onLogout,
+  onPostStatus,
+  onNavigateToFeed,
+  onOpenAdminDb
 }) => {
   const [profile, setProfile] = useState<UserProfile>(user);
   const [newHobby, setNewHobby] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [inlineShareToast, setInlineShareToast] = useState<{ message: string; content: string } | null>(null);
+
+  const isAdmin = (profile.email && profile.email.toLowerCase() === 'simonchikondi8@gmail.com') ||
+                  (profile.username && profile.username.toLowerCase() === 'admin');
 
   const altTextInputRef = useRef<HTMLTextAreaElement>(null);
   const hobbiesInputRef = useRef<HTMLInputElement>(null);
@@ -136,6 +158,58 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
     setSaveSuccess(true);
     audioHaptics.triggerBiometricSuccess();
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  // Instant 1-Tap Quick Share for Relationship Goal
+  const handleQuickShareRelationshipGoal = (goal: RelationshipGoal) => {
+    if (!onPostStatus) return;
+    audioHaptics.triggerTap();
+    const statusContent = `💫 Dating Intent Update: Seeking ${goal.toLowerCase()}${profile.locationCity ? ` in ${profile.locationCity}` : ''}! Open to authentic conversations, slow walks, and meaningful coffee dates. ✨`;
+    
+    onPostStatus({
+      userId: profile.id,
+      userName: profile.name,
+      userAvatar: profile.photos[0] || '',
+      content: statusContent,
+      moodEmoji: '💫',
+      location: profile.locationCity || '',
+      expiresInHours: 24,
+      audience: 'matches'
+    });
+
+    audioHaptics.triggerMatch();
+    speechService.speak(`Relationship intent shared as status: Seeking ${goal.toLowerCase()}`);
+    setInlineShareToast({
+      message: `Posted intent: "${goal}"`,
+      content: statusContent
+    });
+    setTimeout(() => setInlineShareToast(null), 6000);
+  };
+
+  // Instant 1-Tap Quick Share for Hobby
+  const handleQuickShareHobby = (hobby: string) => {
+    if (!onPostStatus) return;
+    audioHaptics.triggerTap();
+    const statusContent = `🎨 Current Passion: Deeply into ${hobby} lately! Anyone with great recommendations or up for connecting around this?`;
+
+    onPostStatus({
+      userId: profile.id,
+      userName: profile.name,
+      userAvatar: profile.photos[0] || '',
+      content: statusContent,
+      moodEmoji: '🎨',
+      location: profile.locationCity || '',
+      expiresInHours: 24,
+      audience: 'matches'
+    });
+
+    audioHaptics.triggerMatch();
+    speechService.speak(`Hobby update for ${hobby} shared to your status feed!`);
+    setInlineShareToast({
+      message: `Posted hobby update: "${hobby}"`,
+      content: statusContent
+    });
+    setTimeout(() => setInlineShareToast(null), 6000);
   };
 
   const handleSelectReportAction = (actionKey: string) => {
@@ -203,6 +277,18 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {isAdmin && onOpenAdminDb && (
+            <button
+              type="button"
+              onClick={onOpenAdminDb}
+              className="px-3.5 py-2 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition"
+              title="Open Cloud SQL Database Management Console"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>SQL Database</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onTriggerBiometricLock}
@@ -290,28 +376,156 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
         </button>
       </div>
 
+      {/* Quick Share Status Card Hub (1-Tap Turn Relationship or Hobby into Status Post) */}
+      {onPostStatus && (
+        <div className="mb-6">
+          <QuickShareStatusCard
+            user={profile}
+            onPostStatus={onPostStatus}
+            onNavigateToFeed={onNavigateToFeed}
+          />
+        </div>
+      )}
+
+      {/* Inline Quick Share Floating/Inline Notification */}
+      {inlineShareToast && (
+        <div 
+          id="profile-inline-share-toast"
+          className="mb-4 p-3.5 bg-gradient-to-r from-indigo-950 via-neutral-900 to-rose-950/80 border border-indigo-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xl animate-fadeIn"
+        >
+          <div className="flex items-center gap-2.5 text-xs text-white">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="font-bold text-indigo-300">{inlineShareToast.message}</p>
+              <p className="text-[11px] text-neutral-300 italic line-clamp-1">"{inlineShareToast.content}"</p>
+            </div>
+          </div>
+          {onNavigateToFeed && (
+            <button
+              type="button"
+              onClick={() => {
+                audioHaptics.triggerTap();
+                onNavigateToFeed();
+              }}
+              className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap self-end sm:self-auto"
+            >
+              <span>View in Feed</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSave} className="space-y-6">
         {/* Photo & Video Bio Studio Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Main Photo Card with Alt-Text */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg relative">
-            <div className="relative w-32 h-32 rounded-full overflow-hidden mb-3 border-2 border-indigo-500 shadow-md">
-              <img
-                src={profile.photos[0]}
-                alt={profile.photoDescription || profile.name}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
+          {/* Main Photo Gallery & Photo Upload Studio */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-4 flex flex-col shadow-lg relative space-y-4">
+            
+            {/* Primary Avatar Preview */}
+            <div className="flex flex-col items-center text-center">
+              <div className="relative w-28 h-28 rounded-full overflow-hidden mb-2 border-2 border-rose-500 shadow-md bg-neutral-950 flex items-center justify-center">
+                {profile.photos && profile.photos.length > 0 ? (
+                  <img
+                    src={profile.photos[0]}
+                    alt={profile.photoDescription || profile.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-neutral-500">
+                    <User className="w-8 h-8 text-neutral-600 mb-1" />
+                    <span className="text-[10px]">No Photo</span>
+                  </div>
+                )}
+              </div>
+              <h3 className="text-base font-bold text-white">{profile.name}</h3>
+              <p className="text-xs text-neutral-400">{profile.jobTitle || 'Member'}</p>
+              <span className="mt-1.5 text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                Verified User Profile
+              </span>
+            </div>
+
+            {/* Photo Gallery Thumbnails (if multiple photos) */}
+            {profile.photos && profile.photos.length > 0 && (
+              <div className="space-y-1.5 border-t border-neutral-800 pt-3">
+                <label className="text-[11px] font-bold text-neutral-300 flex items-center justify-between">
+                  <span>Your Photos ({profile.photos.length})</span>
+                  <span className="text-[10px] text-neutral-500 font-normal">First photo is primary</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {profile.photos.map((photoUrl, idx) => (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden aspect-square border border-neutral-700 bg-neutral-950">
+                      <img
+                        src={photoUrl}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      
+                      {/* Primary badge */}
+                      {idx === 0 && (
+                        <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] font-black px-1.5 py-0.2 rounded-md shadow">
+                          Main
+                        </span>
+                      )}
+
+                      {/* Photo Actions Overlay */}
+                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+                        {idx !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const reordered = [photoUrl, ...profile.photos.filter((_, i) => i !== idx)];
+                              setProfile({ ...profile, photos: reordered });
+                              audioHaptics.triggerTap();
+                            }}
+                            title="Set as Main Profile Avatar"
+                            className="p-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg"
+                          >
+                            <Star className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = profile.photos.filter((_, i) => i !== idx);
+                            setProfile({ ...profile, photos: filtered });
+                            audioHaptics.triggerTap();
+                          }}
+                          title="Delete photo"
+                          className="p-1.5 bg-neutral-800 hover:bg-red-600 text-white rounded-lg"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add / Upload New Photo Component */}
+            <div className="border-t border-neutral-800 pt-3">
+              <PhotoUploadInput
+                onPhotoSelected={(newPhotoUrl, alt) => {
+                  const updatedPhotos = [...(profile.photos || []), newPhotoUrl];
+                  setProfile({
+                    ...profile,
+                    photos: updatedPhotos,
+                    photoDescription: alt || profile.photoDescription || `Profile photo of ${profile.name}`
+                  });
+                }}
+                label="Add Profile Photo"
+                altTextLabel="Photo Description (Alt-Text)"
+                initialAltText={profile.photoDescription || ''}
+                showAltTextInput={false}
               />
             </div>
-            <h3 className="text-base font-bold text-white">{profile.name}</h3>
-            <p className="text-xs text-neutral-400">{profile.jobTitle}</p>
-            <span className="mt-2 text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              Biometrically Verified
-            </span>
 
             {/* Photo Visual Description (Alt-Text for Screen Readers) */}
-            <div className="w-full mt-4 text-left border-t border-neutral-800 pt-3 space-y-1">
+            <div className="w-full border-t border-neutral-800 pt-3 space-y-1">
               <label className="text-[11px] font-bold text-neutral-300 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5 text-sky-400" />
                 <span>Photo Alt-Text (Screen Reader Description)</span>
@@ -360,7 +574,7 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
                 type="button"
                 id="btn-open-video-studio-profile"
                 onClick={onOpenVideoStudio}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition-all"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
                 <span>{profile.videoBio ? 'Watch or Re-Record Video Bio' : 'Record Video Bio Studio'}</span>
@@ -381,9 +595,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Display Name</label>
               <input
                 type="text"
-                value={profile.name}
+                placeholder="Your full or preferred name..."
+                value={profile.name || ''}
                 onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
@@ -391,19 +606,24 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Age</label>
               <input
                 type="number"
-                value={profile.age}
-                onChange={(e) => setProfile({ ...profile, age: parseInt(e.target.value) || 18 })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                placeholder="e.g. 26"
+                value={profile.age && profile.age > 0 ? profile.age : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setProfile({ ...profile, age: val === '' ? 0 : parseInt(val) || 0 });
+                }}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
             <div>
               <label className="text-neutral-400 font-semibold block mb-1">Gender</label>
               <select
-                value={profile.gender}
+                value={profile.gender || ''}
                 onChange={(e) => setProfile({ ...profile, gender: e.target.value as Gender })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.gender && <option value="">Select Gender...</option>}
                 {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
@@ -412,9 +632,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Pronouns</label>
               <input
                 type="text"
-                value={profile.pronouns}
+                placeholder="e.g. they/them, she/her, he/him..."
+                value={profile.pronouns || ''}
                 onChange={(e) => setProfile({ ...profile, pronouns: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
@@ -422,19 +643,35 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">City / Location</label>
               <input
                 type="text"
-                value={profile.locationCity}
+                placeholder="e.g. San Francisco, CA"
+                value={profile.locationCity || ''}
                 onChange={(e) => setProfile({ ...profile, locationCity: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
             <div>
-              <label className="text-neutral-400 font-semibold block mb-1">Relationship Goal</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-neutral-400 font-semibold block">Relationship Goal</label>
+                {onPostStatus && profile.relationshipGoal && (
+                  <button
+                    type="button"
+                    id="btn-quick-share-relationship-inline"
+                    onClick={() => handleQuickShareRelationshipGoal(profile.relationshipGoal)}
+                    className="text-[10px] font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                    title="1-Tap post this relationship goal as a status update"
+                  >
+                    <Zap className="w-3 h-3 fill-rose-400" />
+                    <span>1-Tap Share</span>
+                  </button>
+                )}
+              </div>
               <select
-                value={profile.relationshipGoal}
+                value={profile.relationshipGoal || ''}
                 onChange={(e) => setProfile({ ...profile, relationshipGoal: e.target.value as RelationshipGoal })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.relationshipGoal && <option value="">Select Relationship Goal...</option>}
                 {GOALS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
@@ -445,9 +682,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
             <textarea
               ref={bioInputRef}
               rows={3}
-              value={profile.bio}
+              placeholder="Tell daters about yourself, what you love, and what you're looking for..."
+              value={profile.bio || ''}
               onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl p-3 text-xs text-white leading-relaxed resize-none"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl p-3 text-xs text-white placeholder-neutral-500 leading-relaxed resize-none"
             />
           </div>
         </div>
@@ -465,20 +703,27 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <div className="flex gap-2">
                 <input
                   type="number"
-                  value={profile.heightCm}
+                  placeholder="cm"
+                  value={profile.heightCm && profile.heightCm > 0 ? profile.heightCm : ''}
                   onChange={(e) => {
-                    const cm = parseInt(e.target.value) || 170;
-                    const ft = Math.floor(cm / 30.48);
-                    const inches = Math.round((cm % 30.48) / 2.54);
-                    setProfile({ ...profile, heightCm: cm, heightFeet: `${ft}'${inches}"` });
+                    const val = e.target.value;
+                    const cm = val === '' ? 0 : parseInt(val) || 0;
+                    if (cm > 0) {
+                      const ft = Math.floor(cm / 30.48);
+                      const inches = Math.round((cm % 30.48) / 2.54);
+                      setProfile({ ...profile, heightCm: cm, heightFeet: `${ft}'${inches}"` });
+                    } else {
+                      setProfile({ ...profile, heightCm: 0, heightFeet: '' });
+                    }
                   }}
-                  className="w-1/2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                  className="w-1/2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
                 />
                 <input
                   type="text"
-                  value={profile.heightFeet}
+                  placeholder="e.g. 5'9&quot;"
+                  value={profile.heightFeet || ''}
                   onChange={(e) => setProfile({ ...profile, heightFeet: e.target.value })}
-                  className="w-1/2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                  className="w-1/2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
                 />
               </div>
             </div>
@@ -487,19 +732,24 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Weight (kg)</label>
               <input
                 type="number"
-                value={profile.weightKg || 65}
-                onChange={(e) => setProfile({ ...profile, weightKg: parseInt(e.target.value) || 65 })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                placeholder="e.g. 68"
+                value={profile.weightKg && profile.weightKg > 0 ? profile.weightKg : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setProfile({ ...profile, weightKg: val === '' ? undefined : parseInt(val) || undefined });
+                }}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
             <div>
               <label className="text-neutral-400 font-semibold block mb-1">Complexion</label>
               <select
-                value={profile.complexion}
+                value={profile.complexion || ''}
                 onChange={(e) => setProfile({ ...profile, complexion: e.target.value as Complexion })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.complexion && <option value="">Select Complexion...</option>}
                 {COMPLEXIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -507,10 +757,11 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
             <div>
               <label className="text-neutral-400 font-semibold block mb-1">Race / Ethnicity</label>
               <select
-                value={profile.raceEthnicity}
+                value={profile.raceEthnicity || ''}
                 onChange={(e) => setProfile({ ...profile, raceEthnicity: e.target.value as Ethnicity })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.raceEthnicity && <option value="">Select Ethnicity...</option>}
                 {ETHNICITIES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
@@ -518,10 +769,11 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
             <div>
               <label className="text-neutral-400 font-semibold block mb-1">Religion / Beliefs</label>
               <select
-                value={profile.religion}
+                value={profile.religion || ''}
                 onChange={(e) => setProfile({ ...profile, religion: e.target.value as Religion })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.religion && <option value="">Select Religion...</option>}
                 {RELIGIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
@@ -529,10 +781,11 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
             <div>
               <label className="text-neutral-400 font-semibold block mb-1">Level of Education</label>
               <select
-                value={profile.education}
+                value={profile.education || ''}
                 onChange={(e) => setProfile({ ...profile, education: e.target.value as EducationLevel })}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
               >
+                {!profile.education && <option value="">Select Education...</option>}
                 {EDUCATION_LEVELS.map(ed => <option key={ed} value={ed}>{ed}</option>)}
               </select>
             </div>
@@ -541,9 +794,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Job Title</label>
               <input
                 type="text"
-                value={profile.jobTitle}
+                placeholder="e.g. Software Engineer, Designer..."
+                value={profile.jobTitle || ''}
                 onChange={(e) => setProfile({ ...profile, jobTitle: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
@@ -551,9 +805,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Company / Industry</label>
               <input
                 type="text"
-                value={profile.companyOrField}
+                placeholder="e.g. Tech, Healthcare, Non-profit..."
+                value={profile.companyOrField || ''}
                 onChange={(e) => setProfile({ ...profile, companyOrField: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
 
@@ -561,9 +816,10 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
               <label className="text-neutral-400 font-semibold block mb-1">Nationality</label>
               <input
                 type="text"
-                value={profile.nationality}
+                placeholder="e.g. American, Nigerian, Global Citizen..."
+                value={profile.nationality || ''}
                 onChange={(e) => setProfile({ ...profile, nationality: e.target.value })}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-white placeholder-neutral-500"
               />
             </div>
           </div>
@@ -578,18 +834,44 @@ export const MyProfileEditor: React.FC<MyProfileEditorProps> = ({
 
           {/* Hobbies */}
           <div>
-            <label className="text-xs font-semibold text-neutral-300 block mb-2">My Hobbies</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-neutral-300 block">My Hobbies & Passions</label>
+              {onPostStatus && profile.hobbies.length > 0 && (
+                <button
+                  type="button"
+                  id="btn-quick-share-latest-hobby-inline"
+                  onClick={() => handleQuickShareHobby(profile.hobbies[profile.hobbies.length - 1])}
+                  className="text-[10px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="1-Tap post your latest hobby as a status update"
+                >
+                  <Zap className="w-3 h-3 fill-amber-400" />
+                  <span>1-Tap Share Latest ({profile.hobbies[profile.hobbies.length - 1]})</span>
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2 mb-2">
-              {profile.hobbies.map((h) => (
+              {profile.hobbies.map((h, idx) => (
                 <span
                   key={h}
-                  className="bg-neutral-800 text-neutral-200 border border-neutral-700 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5"
+                  className="bg-neutral-800 text-neutral-200 border border-neutral-700 px-3 py-1 rounded-xl text-xs flex items-center gap-2 group transition-all hover:border-neutral-600"
                 >
                   <span>{h}</span>
+                  {onPostStatus && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickShareHobby(h)}
+                      className="text-amber-400/70 hover:text-amber-300 p-0.5 rounded hover:bg-amber-400/10 transition-colors"
+                      title={`1-Tap share "${h}" as status`}
+                      aria-label={`Share ${h} as status`}
+                    >
+                      <Zap className="w-3 h-3 fill-amber-400/50 hover:fill-amber-400" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeHobby(h)}
-                    className="text-neutral-400 hover:text-rose-400"
+                    className="text-neutral-400 hover:text-rose-400 ml-0.5"
+                    title={`Remove ${h}`}
                   >
                     <X className="w-3 h-3" />
                   </button>

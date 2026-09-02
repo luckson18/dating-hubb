@@ -62,8 +62,13 @@ export const DiscoveryDeck: React.FC<DiscoveryDeckProps> = ({
   // Auto-announce profile to screen reader when card changes
   useEffect(() => {
     if (currentProfile) {
-      // Announce profile briefly for screen reader
-      const announce = `Viewing profile of ${currentProfile.name}, age ${currentProfile.age}, ${currentProfile.jobTitle}.`;
+      const detailsParts = [
+        currentProfile.name,
+        currentProfile.age > 0 ? `age ${currentProfile.age}` : null,
+        currentProfile.jobTitle || null,
+        currentProfile.locationCity || null
+      ].filter(Boolean);
+      const announce = `Viewing profile of ${detailsParts.join(', ')}.`;
       speechService.speak(announce, undefined, false);
     }
   }, [currentIndex, currentProfile]);
@@ -215,9 +220,13 @@ export const DiscoveryDeck: React.FC<DiscoveryDeckProps> = ({
               <div className="w-16 h-16 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4 ring-4 ring-indigo-500/20">
                 <Heart className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold mb-2">You're All Caught Up!</h3>
+              <h3 className="text-xl font-bold mb-2">
+                {profiles.length === 0 ? 'No Other Users Registered Yet' : "You're All Caught Up!"}
+              </h3>
               <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
-                You've reviewed all suggested profiles matching your current proximity and personal preference filters.
+                {profiles.length === 0
+                  ? 'Your feed displays only authentic accounts created by real users. As new community members register their accounts, they will appear right here.'
+                  : "You've reviewed all suggested profiles matching your current proximity and personal preference filters."}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 w-full">
                 <button
@@ -264,18 +273,30 @@ export const DiscoveryDeck: React.FC<DiscoveryDeckProps> = ({
             </p>
 
             <div className="flex items-center justify-center -space-x-3 mb-6">
-              <img
-                src={currentUser.photos[0]}
-                alt={currentUser.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500 shadow-md"
-                referrerPolicy="no-referrer"
-              />
-              <img
-                src={matchedProfile.photos[0]}
-                alt={matchedProfile.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-rose-500 shadow-md"
-                referrerPolicy="no-referrer"
-              />
+              {currentUser.photos[0] ? (
+                <img
+                  src={currentUser.photos[0]}
+                  alt={currentUser.name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500 shadow-md"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-indigo-900/60 border-2 border-indigo-500 shadow-md flex items-center justify-center text-lg font-bold text-white">
+                  {currentUser.name.charAt(0)}
+                </div>
+              )}
+              {matchedProfile.photos[0] ? (
+                <img
+                  src={matchedProfile.photos[0]}
+                  alt={matchedProfile.name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-rose-500 shadow-md"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-rose-900/60 border-2 border-rose-500 shadow-md flex items-center justify-center text-lg font-bold text-white">
+                  {matchedProfile.name.charAt(0)}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2.5">

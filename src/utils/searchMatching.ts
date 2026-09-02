@@ -32,12 +32,27 @@ export const SUGGESTED_SEARCH_CHIPS: SearchDescriptorChip[] = [
 ];
 
 /**
- * Checks if a profile matches a complex natural language / descriptive search query.
+ * Checks if a profile matches a name, username, or natural language / descriptive search query.
  */
 export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string): boolean {
   if (!rawQuery || !rawQuery.trim()) return true;
 
   const normalized = rawQuery.toLowerCase().trim();
+  const cleanHandle = normalized.replace(/^@/, '');
+
+  // 0. Direct Name or Username Match (Instant Priority)
+  const profileName = (profile.name || '').toLowerCase();
+  const profileUsername = (profile.username || '').toLowerCase();
+  const profileEmail = (profile.email || '').toLowerCase();
+
+  if (
+    profileName.includes(normalized) ||
+    profileName.includes(cleanHandle) ||
+    (profileUsername && (profileUsername.includes(cleanHandle) || cleanHandle.includes(profileUsername))) ||
+    (profileEmail && profileEmail.includes(cleanHandle))
+  ) {
+    return true;
+  }
 
   // 1. Complexion Specific Semantic Queries
   const isDarkComplexionQuery = 
@@ -49,7 +64,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   if (isDarkComplexionQuery) {
     const darkComplexions = ['deep brown', 'rich ebony', 'warm bronze'];
-    const matchesDarkComplexion = darkComplexions.some(dc => profile.complexion.toLowerCase().includes(dc));
+    const matchesDarkComplexion = Boolean(profile.complexion && darkComplexions.some(dc => profile.complexion.toLowerCase().includes(dc)));
     
     // Check if query is ONLY dark complexion or has additional tokens
     const remainingQuery = normalized
@@ -79,7 +94,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   if (isFairComplexionQuery) {
     const fairComplexions = ['fair / porcelain', 'warm beige'];
-    const matchesFairComplexion = fairComplexions.some(fc => profile.complexion.toLowerCase().includes(fc));
+    const matchesFairComplexion = Boolean(profile.complexion && fairComplexions.some(fc => profile.complexion.toLowerCase().includes(fc)));
     const remainingQuery = normalized
       .replace('fair complexion', '')
       .replace('fair skin', '')
@@ -95,7 +110,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   // Olive / Honey Complexion
   if (normalized.includes('olive') || normalized.includes('honey')) {
-    const matchesOlive = profile.complexion.toLowerCase().includes('olive') || profile.complexion.toLowerCase().includes('honey');
+    const matchesOlive = Boolean(profile.complexion && (profile.complexion.toLowerCase().includes('olive') || profile.complexion.toLowerCase().includes('honey')));
     const remaining = normalized.replace('olive', '').replace('honey', '').replace('complexion', '').trim();
     if (!remaining) return matchesOlive;
     if (!matchesOlive) return false;
@@ -104,10 +119,11 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   // Caramel / Tan / Bronze Complexion
   if (normalized.includes('caramel') || normalized.includes('tan') || normalized.includes('bronze')) {
-    const matchesCaramel = 
+    const matchesCaramel = Boolean(profile.complexion && (
       profile.complexion.toLowerCase().includes('caramel') || 
       profile.complexion.toLowerCase().includes('tan') || 
-      profile.complexion.toLowerCase().includes('bronze');
+      profile.complexion.toLowerCase().includes('bronze')
+    ));
     const remaining = normalized.replace('caramel', '').replace('tan', '').replace('bronze', '').replace('complexion', '').trim();
     if (!remaining) return matchesCaramel;
     if (!matchesCaramel) return false;
@@ -116,7 +132,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   // Ebony / Deep Brown specific
   if (normalized.includes('ebony') || normalized.includes('deep brown')) {
-    const matchesEbony = profile.complexion.toLowerCase().includes('ebony') || profile.complexion.toLowerCase().includes('deep brown');
+    const matchesEbony = Boolean(profile.complexion && (profile.complexion.toLowerCase().includes('ebony') || profile.complexion.toLowerCase().includes('deep brown')));
     const remaining = normalized.replace('ebony', '').replace('deep brown', '').replace('complexion', '').trim();
     if (!remaining) return matchesEbony;
     if (!matchesEbony) return false;
@@ -125,7 +141,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   // Tall / Height queries
   if (normalized.includes('tall') || normalized.includes('6ft') || normalized.includes("6'0") || normalized.includes("6'1") || normalized.includes("6'2") || normalized.includes('>6ft')) {
-    const isTall = profile.heightCm >= 180 || profile.heightFeet.startsWith("6'");
+    const isTall = (profile.heightCm && profile.heightCm >= 180) || Boolean(profile.heightFeet && profile.heightFeet.startsWith("6'"));
     const remaining = normalized
       .replace('tall', '')
       .replace('6ft', '')
@@ -142,7 +158,7 @@ export function matchesDescriptionQuery(profile: UserProfile, rawQuery: string):
 
   // Short / Petite queries
   if (normalized.includes('short') || normalized.includes('petite') || normalized.includes('<5\'5') || normalized.includes("5'4") || normalized.includes("5'3")) {
-    const isPetite = profile.heightCm <= 165;
+    const isPetite = Boolean(profile.heightCm && profile.heightCm > 0 && profile.heightCm <= 165);
     const remaining = normalized
       .replace('short', '')
       .replace('petite', '')
@@ -191,25 +207,28 @@ function matchGeneralAttributes(profile: UserProfile, query: string): boolean {
 
   // Aggregate searchable corpus of the profile
   const profileCorpus = [
-    profile.name,
-    profile.bio,
-    profile.complexion,
-    profile.raceEthnicity,
-    profile.gender,
-    profile.pronouns,
-    profile.religion,
-    profile.education,
-    profile.jobTitle,
-    profile.companyOrField,
-    profile.nationality,
-    profile.relationshipGoal,
-    profile.locationCity,
-    profile.heightFeet,
-    `${profile.heightCm}cm`,
-    `${profile.weightKg}kg`,
-    ...profile.languages,
-    ...profile.hobbies,
-    ...profile.accessibilityBadges,
+    profile.name || '',
+    profile.username || '',
+    `@${profile.username || ''}`,
+    profile.email || '',
+    profile.bio || '',
+    profile.complexion || '',
+    profile.raceEthnicity || '',
+    profile.gender || '',
+    profile.pronouns || '',
+    profile.religion || '',
+    profile.education || '',
+    profile.jobTitle || '',
+    profile.companyOrField || '',
+    profile.nationality || '',
+    profile.relationshipGoal || '',
+    profile.locationCity || '',
+    profile.heightFeet || '',
+    profile.heightCm && profile.heightCm > 0 ? `${profile.heightCm}cm` : '',
+    profile.weightKg && profile.weightKg > 0 ? `${profile.weightKg}kg` : '',
+    ...(profile.languages || []),
+    ...(profile.hobbies || []),
+    ...(profile.accessibilityBadges || []),
     profile.lifestyle?.diet || '',
     profile.lifestyle?.astrologySign || '',
     ...(profile.lifestyle?.pets || []),
@@ -226,21 +245,25 @@ function matchGeneralAttributes(profile: UserProfile, query: string): boolean {
     if (profileCorpus.includes(token)) return true;
 
     // Semantic alias expansion
-    if (token === 'black' && (profile.raceEthnicity.toLowerCase().includes('african') || profile.raceEthnicity.toLowerCase().includes('black'))) return true;
-    if (token === 'asian' && profile.raceEthnicity.toLowerCase().includes('asian')) return true;
-    if (token === 'latino' && profile.raceEthnicity.toLowerCase().includes('hispanic')) return true;
-    if (token === 'arab' && profile.raceEthnicity.toLowerCase().includes('middle eastern')) return true;
-    if (token === 'white' && profile.raceEthnicity.toLowerCase().includes('caucasian')) return true;
-    if (token === 'blind' && profile.accessibilityBadges.some(b => b.toLowerCase().includes('blind') || b.toLowerCase().includes('low vision') || b.toLowerCase().includes('braille'))) return true;
-    if (token === 'deaf' && profile.accessibilityBadges.some(b => b.toLowerCase().includes('deaf') || b.toLowerCase().includes('hearing') || b.toLowerCase().includes('asl'))) return true;
-    if (token === 'asl' && (profile.languages.some(l => l.toLowerCase().includes('asl')) || profile.accessibilityBadges.some(b => b.toLowerCase().includes('asl')))) return true;
-    if (token === 'wheelchair' && profile.accessibilityBadges.some(b => b.toLowerCase().includes('wheelchair') || b.toLowerCase().includes('adaptive'))) return true;
-    if (token === 'adhd' && (profile.accessibilityBadges.some(b => b.toLowerCase().includes('adhd') || b.toLowerCase().includes('neurodivergent')) || profile.bio.toLowerCase().includes('adhd'))) return true;
-    if (token === 'vegan' && profile.lifestyle?.diet?.toLowerCase().includes('plant')) return true;
-    if (token === 'doctor' && (profile.education.toLowerCase().includes('doctorate') || profile.education.toLowerCase().includes('phd') || profile.jobTitle.toLowerCase().includes('dr'))) return true;
-    if (token === 'lawyer' && (profile.jobTitle.toLowerCase().includes('attorney') || profile.jobTitle.toLowerCase().includes('lawyer'))) return true;
-    if (token === 'teacher' && (profile.jobTitle.toLowerCase().includes('educator') || profile.jobTitle.toLowerCase().includes('teacher') || profile.jobTitle.toLowerCase().includes('professor'))) return true;
-    if (token === 'tech' && (profile.jobTitle.toLowerCase().includes('engineer') || profile.companyOrField.toLowerCase().includes('tech') || profile.jobTitle.toLowerCase().includes('software'))) return true;
+    const eth = (profile.raceEthnicity || '').toLowerCase();
+    if (token === 'black' && (eth.includes('african') || eth.includes('black'))) return true;
+    if (token === 'asian' && eth.includes('asian')) return true;
+    if (token === 'latino' && eth.includes('hispanic')) return true;
+    if (token === 'arab' && eth.includes('middle eastern')) return true;
+    if (token === 'white' && eth.includes('caucasian')) return true;
+    if (token === 'blind' && (profile.accessibilityBadges || []).some(b => b.toLowerCase().includes('blind') || b.toLowerCase().includes('low vision') || b.toLowerCase().includes('braille'))) return true;
+    if (token === 'deaf' && (profile.accessibilityBadges || []).some(b => b.toLowerCase().includes('deaf') || b.toLowerCase().includes('hearing') || b.toLowerCase().includes('asl'))) return true;
+    if (token === 'asl' && ((profile.languages || []).some(l => l.toLowerCase().includes('asl')) || (profile.accessibilityBadges || []).some(b => b.toLowerCase().includes('asl')))) return true;
+    if (token === 'wheelchair' && (profile.accessibilityBadges || []).some(b => b.toLowerCase().includes('wheelchair') || b.toLowerCase().includes('adaptive'))) return true;
+    if (token === 'adhd' && ((profile.accessibilityBadges || []).some(b => b.toLowerCase().includes('adhd') || b.toLowerCase().includes('neurodivergent')) || (profile.bio || '').toLowerCase().includes('adhd'))) return true;
+    if (token === 'vegan' && (profile.lifestyle?.diet || '').toLowerCase().includes('plant')) return true;
+    const edu = (profile.education || '').toLowerCase();
+    const job = (profile.jobTitle || '').toLowerCase();
+    const company = (profile.companyOrField || '').toLowerCase();
+    if (token === 'doctor' && (edu.includes('doctorate') || edu.includes('phd') || job.includes('dr'))) return true;
+    if (token === 'lawyer' && (job.includes('attorney') || job.includes('lawyer'))) return true;
+    if (token === 'teacher' && (job.includes('educator') || job.includes('teacher') || job.includes('professor'))) return true;
+    if (token === 'tech' && (job.includes('engineer') || company.includes('tech') || job.includes('software'))) return true;
 
     return false;
   });
@@ -252,54 +275,64 @@ function matchGeneralAttributes(profile: UserProfile, query: string): boolean {
 export function getSearchMatchReasons(profile: UserProfile, rawQuery: string): string[] {
   if (!rawQuery || !rawQuery.trim()) return [];
   const query = rawQuery.toLowerCase().trim();
+  const cleanHandle = query.replace(/^@/, '');
   const reasons: string[] = [];
 
-  if (query.includes('dark') || query.includes('ebony') || query.includes('brown')) {
-    if (['deep brown', 'rich ebony', 'warm bronze'].some(c => profile.complexion.toLowerCase().includes(c))) {
+  // Name or Username match badge
+  if (profile.name && profile.name.toLowerCase().includes(cleanHandle)) {
+    reasons.push(`Name: ${profile.name}`);
+  }
+  if (profile.username && (profile.username.toLowerCase().includes(cleanHandle) || cleanHandle.includes(profile.username.toLowerCase()))) {
+    reasons.push(`@${profile.username}`);
+  }
+
+  const comp = (profile.complexion || '').toLowerCase();
+  if (comp && (query.includes('dark') || query.includes('ebony') || query.includes('brown'))) {
+    if (['deep brown', 'rich ebony', 'warm bronze'].some(c => comp.includes(c))) {
       reasons.push(`Complexion: ${profile.complexion}`);
     }
   }
 
-  if (query.includes('fair') || query.includes('porcelain') || query.includes('light')) {
-    if (['fair / porcelain', 'warm beige'].some(c => profile.complexion.toLowerCase().includes(c))) {
+  if (comp && (query.includes('fair') || query.includes('porcelain') || query.includes('light'))) {
+    if (['fair / porcelain', 'warm beige'].some(c => comp.includes(c))) {
       reasons.push(`Complexion: ${profile.complexion}`);
     }
   }
 
-  if (query.includes('olive') || query.includes('honey')) {
-    if (profile.complexion.toLowerCase().includes('olive') || profile.complexion.toLowerCase().includes('honey')) {
+  if (comp && (query.includes('olive') || query.includes('honey'))) {
+    if (comp.includes('olive') || comp.includes('honey')) {
       reasons.push(`Complexion: ${profile.complexion}`);
     }
   }
 
-  if (query.includes('caramel') || query.includes('tan') || query.includes('bronze')) {
-    if (profile.complexion.toLowerCase().includes('caramel') || profile.complexion.toLowerCase().includes('bronze') || profile.complexion.toLowerCase().includes('tan')) {
+  if (comp && (query.includes('caramel') || query.includes('tan') || query.includes('bronze'))) {
+    if (comp.includes('caramel') || comp.includes('bronze') || comp.includes('tan')) {
       reasons.push(`Complexion: ${profile.complexion}`);
     }
   }
 
   if (query.includes('tall') || query.includes('6ft')) {
-    if (profile.heightCm >= 180) {
-      reasons.push(`Height: ${profile.heightFeet} (${profile.heightCm} cm)`);
+    if (profile.heightCm && profile.heightCm >= 180) {
+      reasons.push(`Height: ${profile.heightFeet || `${profile.heightCm} cm`}`);
     }
   }
 
   // Accessibility badges match
-  profile.accessibilityBadges.forEach(badge => {
+  (profile.accessibilityBadges || []).forEach(badge => {
     if (query.split(' ').some(w => w.length > 2 && badge.toLowerCase().includes(w))) {
       reasons.push(badge);
     }
   });
 
   // Hobbies match
-  profile.hobbies.forEach(hobby => {
+  (profile.hobbies || []).forEach(hobby => {
     if (query.split(' ').some(w => w.length > 2 && hobby.toLowerCase().includes(w))) {
       reasons.push(`Hobby: ${hobby}`);
     }
   });
 
   // Profession match
-  if (query.split(' ').some(w => w.length > 2 && profile.jobTitle.toLowerCase().includes(w))) {
+  if (profile.jobTitle && query.split(' ').some(w => w.length > 2 && profile.jobTitle.toLowerCase().includes(w))) {
     reasons.push(`Role: ${profile.jobTitle}`);
   }
 

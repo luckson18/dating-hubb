@@ -4,8 +4,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Sparkles, 
-  Volume2, 
-  VolumeX, 
   Eye, 
   Mic, 
   Heart, 
@@ -20,7 +18,6 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../../types/dating';
 import { generatePersonalAccessibilityReport, AccessibilityCheckItem } from '../../utils/accessibilityAudit';
-import { speechService } from '../../services/speechService';
 import { audioHaptics } from '../../services/audioHaptics';
 
 interface PersonalAccessibilityReportModalProps {
@@ -36,7 +33,6 @@ export const PersonalAccessibilityReportModal: React.FC<PersonalAccessibilityRep
   profile,
   onSelectAction
 }) => {
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'recommendations' | 'checklist'>('overview');
   const [copiedBadge, setCopiedBadge] = useState(false);
 
@@ -49,21 +45,6 @@ export const PersonalAccessibilityReportModal: React.FC<PersonalAccessibilityRep
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (overallScore / 100) * circumference;
-
-  const handleToggleNarration = () => {
-    if (isSpeaking) {
-      speechService.stopSpeaking();
-      setIsSpeaking(false);
-    } else {
-      setIsSpeaking(true);
-      const textToRead = `Personal Accessibility Report for ${profile.name}. Overall inclusivity score is ${overallScore} percent. Tier: ${tier}. ${summary}. ${
-        highPriorityRecommendations.length > 0
-          ? `Top suggested improvement: ${highPriorityRecommendations[0].title}. ${highPriorityRecommendations[0].improvementTip}`
-          : 'All core accessibility checks are passed.'
-      }`;
-      speechService.speak(textToRead, () => setIsSpeaking(false));
-    }
-  };
 
   const handleActionClick = (actionKey?: string) => {
     audioHaptics.triggerNavigationClick();
@@ -110,24 +91,9 @@ export const PersonalAccessibilityReportModal: React.FC<PersonalAccessibilityRep
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Screen Reader Voice Button */}
-            <button
-              onClick={handleToggleNarration}
-              className={`p-2 rounded-xl border transition-colors ${
-                isSpeaking 
-                  ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-900/40 animate-pulse' 
-                  : 'bg-neutral-900 text-neutral-300 border-neutral-700 hover:text-white'
-              }`}
-              title={isSpeaking ? 'Stop narration' : 'Listen to accessibility report'}
-              aria-label={isSpeaking ? 'Stop narration' : 'Listen to accessibility report'}
-            >
-              {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
             {/* Close Button */}
             <button
               onClick={() => {
-                speechService.stopSpeaking();
                 onClose();
               }}
               className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800 transition-colors"
@@ -515,7 +481,6 @@ export const PersonalAccessibilityReportModal: React.FC<PersonalAccessibilityRep
 
           <button
             onClick={() => {
-              speechService.stopSpeaking();
               onClose();
             }}
             className="px-4 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold transition-colors"

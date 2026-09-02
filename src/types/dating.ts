@@ -15,9 +15,9 @@ export interface AccessibilitySettings {
   autoReadProfiles: boolean;
 }
 
-export type Gender = 'Woman' | 'Man' | 'Non-binary' | 'Agender' | 'Genderfluid' | 'Transgender' | 'Other';
+export type Gender = 'Woman' | 'Man' | 'Non-binary' | 'Agender' | 'Genderfluid' | 'Transgender' | 'Other' | '';
 
-export type Complexion = 'Fair / Porcelain' | 'Warm Beige' | 'Olive / Honey' | 'Caramel / Tan' | 'Warm Bronze' | 'Deep Brown' | 'Rich Ebony';
+export type Complexion = 'Fair / Porcelain' | 'Warm Beige' | 'Olive / Honey' | 'Caramel / Tan' | 'Warm Bronze' | 'Deep Brown' | 'Rich Ebony' | '';
 
 export type Ethnicity = 
   | 'African / Black'
@@ -29,7 +29,8 @@ export type Ethnicity =
   | 'White / Caucasian'
   | 'Pacific Islander'
   | 'Multiracial / Mixed'
-  | 'Other';
+  | 'Other'
+  | '';
 
 export type Religion = 
   | 'Agnostic'
@@ -43,7 +44,8 @@ export type Religion =
   | 'Sikh'
   | 'Spiritual / Eclectic'
   | 'Traditional / Indigenous'
-  | 'Other';
+  | 'Other'
+  | '';
 
 export type EducationLevel = 
   | 'High School / Secondary'
@@ -52,7 +54,8 @@ export type EducationLevel =
   | "Bachelor's Degree"
   | "Master's / Graduate"
   | 'Doctorate / PhD / MD / JD'
-  | 'Self-Taught / Other';
+  | 'Self-Taught / Other'
+  | '';
 
 export type RelationshipGoal = 
   | 'Long-term partnership'
@@ -60,7 +63,8 @@ export type RelationshipGoal =
   | 'Meaningful dating'
   | 'Friendship & Connection'
   | 'Casual dating'
-  | 'Open to exploring';
+  | 'Open to exploring'
+  | '';
 
 export interface VideoBio {
   url: string;
@@ -105,6 +109,8 @@ export interface UserProfile {
     diet?: string;
     smoking?: string;
     drinking?: string;
+    exercise?: string;
+    sleepSchedule?: string;
     pets?: string[];
     astrologySign?: string;
   };
@@ -156,6 +162,8 @@ export interface StatusUpdate {
   userAvatar: string;
   content: string;
   mediaUrl?: string;
+  photoUrl?: string;
+  photoDescription?: string;
   mediaType?: 'image' | 'audio' | 'video';
   moodEmoji?: string;
   location?: string;
@@ -193,6 +201,10 @@ export interface StatusDraft {
   userName: string;
   userAvatar: string;
   content: string;
+  mediaUrl?: string;
+  photoUrl?: string;
+  photoDescription?: string;
+  mediaType?: 'image' | 'audio' | 'video';
   moodEmoji?: string;
   location?: string;
   expiresInHours: number;
@@ -512,5 +524,21 @@ export interface AuthSession {
   token: string;
   rememberMe: boolean;
   loginTime: string;
+  role?: 'admin' | 'user';
+}
+
+export interface AdminUserData extends UserProfile {
+  role: 'admin' | 'user';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminDatabaseStats {
+  totalUsers: number;
+  adminUsers: number;
+  regularUsers: number;
+  databaseEngine: string;
+  databaseStatus: 'connected' | 'offline' | 'in-memory';
+  lastSyncedAt: string;
 }
 

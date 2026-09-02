@@ -26,30 +26,39 @@ import {
 import { locationService } from '../../services/locationService';
 import { audioHaptics } from '../../services/audioHaptics';
 import { speechService } from '../../services/speechService';
-import { MOCK_PROFILES, CURRENT_USER } from '../../data/mockProfiles';
 
 interface GeolocationManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentLocation: GeoCoordinates | null;
   onLocationUpdated: (coords: GeoCoordinates, reverseData: ReverseGeocodeResult) => void;
+  availableProfiles?: UserProfile[];
 }
 
 export const GeolocationManagerModal: React.FC<GeolocationManagerModalProps> = ({
   isOpen,
   onClose,
   currentLocation,
-  onLocationUpdated
+  onLocationUpdated,
+  availableProfiles = []
 }) => {
   const [coords, setCoords] = useState<GeoCoordinates | null>(currentLocation || { lat: 37.7749, lng: -122.4194 });
   const [reverseData, setReverseData] = useState<ReverseGeocodeResult | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
-  const [selectedTargetProfile, setSelectedTargetProfile] = useState<UserProfile>(MOCK_PROFILES[0]);
+  const [selectedTargetProfile, setSelectedTargetProfile] = useState<UserProfile | null>(() => {
+    return availableProfiles.length > 0 ? availableProfiles[0] : null;
+  });
   const [travelTimes, setTravelTimes] = useState<DistanceMatrixMultiMode | null>(null);
   const [isCalculatingTravel, setIsCalculatingTravel] = useState(false);
   const [customLat, setCustomLat] = useState('37.7749');
   const [customLng, setCustomLng] = useState('-122.4194');
+
+  useEffect(() => {
+    if (availableProfiles.length > 0 && !selectedTargetProfile) {
+      setSelectedTargetProfile(availableProfiles[0]);
+    }
+  }, [availableProfiles]);
 
   useEffect(() => {
     if (isOpen) {
@@ -223,22 +232,22 @@ export const GeolocationManagerModal: React.FC<GeolocationManagerModalProps> = (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                   <div className="p-2 bg-neutral-900/50 rounded-lg border border-neutral-800/50">
                     <span className="text-neutral-500 block">Neighborhood</span>
-                    <span className="font-medium text-neutral-200">{reverseData.neighborhood || 'Civic Center'}</span>
+                    <span className="font-medium text-neutral-200">{reverseData.neighborhood || '—'}</span>
                   </div>
                   <div className="p-2 bg-neutral-900/50 rounded-lg border border-neutral-800/50">
                     <span className="text-neutral-500 block">City / Locality</span>
-                    <span className="font-medium text-neutral-200">{reverseData.city || 'San Francisco'}</span>
+                    <span className="font-medium text-neutral-200">{reverseData.city || '—'}</span>
                   </div>
                   <div className="p-2 bg-neutral-900/50 rounded-lg border border-neutral-800/50">
                     <span className="text-neutral-500 block">Coordinates</span>
                     <span className="font-mono text-neutral-200">
-                      {coords?.lat.toFixed(4)}, {coords?.lng.toFixed(4)}
+                      {coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : '—'}
                     </span>
                   </div>
                   <div className="p-2 bg-neutral-900/50 rounded-lg border border-neutral-800/50">
                     <span className="text-neutral-500 block">Postal Code / State</span>
                     <span className="font-medium text-neutral-200">
-                      {reverseData.postalCode || '94103'}, {reverseData.state || 'CA'}
+                      {[reverseData.postalCode, reverseData.state].filter(Boolean).join(', ') || '—'}
                     </span>
                   </div>
                 </div>
@@ -265,24 +274,30 @@ export const GeolocationManagerModal: React.FC<GeolocationManagerModalProps> = (
               <label htmlFor="target-profile-select" className="text-xs text-neutral-400 block">
                 Calculate live distance & travel times to dater:
               </label>
-              <select
-                id="target-profile-select"
-                value={selectedTargetProfile.id}
-                onChange={(e) => {
-                  const found = MOCK_PROFILES.find(p => p.id === e.target.value);
-                  if (found) {
-                    setSelectedTargetProfile(found);
-                    audioHaptics.triggerNavigationClick();
-                  }
-                }}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-              >
-                {MOCK_PROFILES.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.locationCity}) - {p.relationshipGoal}
-                  </option>
-                ))}
-              </select>
+              {availableProfiles.length > 0 ? (
+                <select
+                  id="target-profile-select"
+                  value={selectedTargetProfile?.id || ''}
+                  onChange={(e) => {
+                    const found = availableProfiles.find(p => p.id === e.target.value);
+                    if (found) {
+                      setSelectedTargetProfile(found);
+                      audioHaptics.triggerNavigationClick();
+                    }
+                  }}
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                >
+                  {availableProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.locationCity ? `(${p.locationCity})` : ''} {p.relationshipGoal ? `- ${p.relationshipGoal}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-neutral-400 italic bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-800">
+                  No other registered users available yet to calculate routes against.
+                </p>
+              )}
             </div>
 
             {/* Travel Times Grid */}

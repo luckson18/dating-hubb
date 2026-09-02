@@ -3,7 +3,6 @@ import {
   Plus, 
   Heart, 
   MapPin, 
-  Volume2, 
   ShieldCheck, 
   Users, 
   Lock, 
@@ -12,13 +11,14 @@ import {
   X, 
   MessageCircle,
   Check,
-  RotateCcw
+  RotateCcw,
+  Camera,
+  Eye
 } from 'lucide-react';
 import { StatusUpdate, UserProfile } from '../../types/dating';
 import { InterestedPartnersModal } from './InterestedPartnersModal';
 import { ExpressInterestModal } from './ExpressInterestModal';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface StatusUpdatesBarProps {
   statuses: StatusUpdate[];
@@ -73,12 +73,6 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
     }
   };
 
-  const handleReadStatusAloud = (st: StatusUpdate) => {
-    const interestedText = st.interestedCount ? `, ${st.interestedCount} partners interested` : '';
-    const text = `Status by ${st.userName}, posted ${st.createdAt}. Location: ${st.location || 'Local'}. Content: ${st.content}${interestedText}`;
-    speechService.speak(text);
-  };
-
   return (
     <div id="status-updates-bar" className="w-full bg-neutral-900/60 border-b border-neutral-800 py-3 px-4 overflow-hidden">
       <div className="max-w-7xl mx-auto flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
@@ -92,12 +86,18 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
           className="flex-shrink-0 flex flex-col items-center gap-1 group cursor-pointer"
         >
           <div className="relative w-14 h-14 rounded-full p-0.5 border-2 border-dashed border-indigo-500 hover:border-indigo-400 transition-colors flex items-center justify-center bg-neutral-800">
-            <img
-              src={currentUser.photos[0]}
-              alt="My Avatar"
-              className="w-full h-full rounded-full object-cover opacity-85 group-hover:opacity-100"
-              referrerPolicy="no-referrer"
-            />
+            {currentUser.photos && currentUser.photos[0] ? (
+              <img
+                src={currentUser.photos[0]}
+                alt="My Avatar"
+                className="w-full h-full rounded-full object-cover opacity-85 group-hover:opacity-100"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-full h-full rounded-full bg-indigo-900/60 flex items-center justify-center text-sm font-bold text-indigo-200">
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
             <div className="absolute bottom-0 right-0 p-1 rounded-full bg-indigo-600 text-white shadow-md">
               <Plus className="w-3 h-3 stroke-[3]" />
             </div>
@@ -109,28 +109,39 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
 
         {/* List of Status Updates */}
         {statuses.map((status) => {
+          const hasPhoto = Boolean(status.photoUrl || status.mediaUrl);
           return (
             <button
               key={status.id}
               onClick={() => {
                 setActiveStatus(status);
                 audioHaptics.triggerNavigationClick();
-                handleReadStatusAloud(status);
               }}
               className="flex-shrink-0 flex flex-col items-center gap-1 group text-left cursor-pointer"
             >
               <div className="relative w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-indigo-500 via-rose-500 to-amber-400 group-hover:scale-105 transition-transform shadow-md">
-                <div className="w-full h-full rounded-full overflow-hidden bg-neutral-900 p-0.5">
-                  <img
-                    src={status.userAvatar}
-                    alt={status.userName}
-                    className="w-full h-full rounded-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="w-full h-full rounded-full overflow-hidden bg-neutral-900 p-0.5 flex items-center justify-center">
+                  {status.userAvatar ? (
+                    <img
+                      src={status.userAvatar}
+                      alt={status.userName}
+                      className="w-full h-full rounded-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-neutral-200">
+                      {status.userName ? status.userName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
                 </div>
                 {status.moodEmoji && (
                   <span className="absolute -top-1 -right-1 text-xs bg-neutral-900 border border-neutral-700 rounded-full w-5 h-5 flex items-center justify-center shadow">
                     {status.moodEmoji}
+                  </span>
+                )}
+                {hasPhoto && (
+                  <span className="absolute -bottom-1 -left-1 text-[9px] bg-rose-600 text-white rounded-full p-1 shadow-sm border border-neutral-900" title="Photo Status">
+                    <Camera className="w-2.5 h-2.5" />
                   </span>
                 )}
                 {status.interestedCount && status.interestedCount > 0 ? (
@@ -154,16 +165,22 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
           aria-modal="true"
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
         >
-          <div className="bg-neutral-900 border border-neutral-700 text-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-150">
+          <div className="bg-neutral-900 border border-neutral-700 text-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             {/* Top Bar with Progress & Close */}
-            <div className="p-4 bg-neutral-950/80 border-b border-neutral-800 flex items-center justify-between">
+            <div className="p-4 bg-neutral-950/80 border-b border-neutral-800 flex items-center justify-between sticky top-0 z-10">
               <div className="flex items-center gap-2.5">
-                <img
-                  src={activeStatus.userAvatar}
-                  alt={activeStatus.userName}
-                  className="w-10 h-10 rounded-full object-cover border border-indigo-500"
-                  referrerPolicy="no-referrer"
-                />
+                {activeStatus.userAvatar ? (
+                  <img
+                    src={activeStatus.userAvatar}
+                    alt={activeStatus.userName}
+                    className="w-10 h-10 rounded-full object-cover border border-indigo-500"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-indigo-950 border border-indigo-500 flex items-center justify-center text-sm font-bold text-indigo-200">
+                    {activeStatus.userName ? activeStatus.userName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
                 <div>
                   <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                     {activeStatus.userName}
@@ -184,15 +201,8 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
 
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => handleReadStatusAloud(activeStatus)}
-                  className="p-1.5 rounded-lg bg-neutral-800 text-cyan-300 hover:text-white"
-                  title="Read Aloud"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </button>
-                <button
                   onClick={() => setActiveStatus(null)}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800"
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -218,22 +228,42 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
                   audioHaptics.triggerNavigationClick();
                   setShowInterestedModal(activeStatus);
                 }}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 hover:bg-amber-900 transition-colors flex items-center gap-1"
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-950/70 border border-amber-500/40 text-amber-300 hover:bg-amber-900 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Sparkles className="w-3 h-3 text-amber-400" />
                 <span>{activeStatus.interestedCount || (activeStatus.interestedPartners?.length || 0)} Interested</span>
               </button>
             </div>
 
+            {/* Status Photo if present */}
+            {(activeStatus.photoUrl || activeStatus.mediaUrl) && (
+              <div className="px-4 pt-3">
+                <div className="relative rounded-2xl overflow-hidden border border-neutral-800 bg-black max-h-60 flex items-center justify-center shadow-lg">
+                  <img
+                    src={activeStatus.photoUrl || activeStatus.mediaUrl}
+                    alt={activeStatus.photoDescription || `Photo by ${activeStatus.userName}`}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-56 object-cover object-center"
+                  />
+                  {activeStatus.photoDescription && (
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2.5 pt-6 text-[10px] text-neutral-200 flex items-start gap-1.5">
+                      <Eye className="w-3 h-3 text-indigo-400 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2 italic">{activeStatus.photoDescription}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Status Content */}
-            <div className="p-5 my-1">
-              <p className="text-sm font-medium text-neutral-100 leading-relaxed bg-black/40 p-4 rounded-2xl border border-neutral-800">
+            <div className="p-4 my-1">
+              <p className="text-sm font-medium text-neutral-100 leading-relaxed bg-black/40 p-3.5 rounded-2xl border border-neutral-800">
                 "{activeStatus.content}"
               </p>
             </div>
 
             {/* Action Bar: Interested Button, Like & Reply */}
-            <div className="p-4 border-t border-neutral-800 bg-neutral-950/90 space-y-2">
+            <div className="p-4 border-t border-neutral-800 bg-neutral-950/90 space-y-2 sticky bottom-0">
               {/* Primary "Interested" Button on Post */}
               {activeStatus.userId !== currentUser.id && (
                 <div className="space-y-1.5">
@@ -278,7 +308,7 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
                       likesCount: activeStatus.hasLiked ? activeStatus.likesCount - 1 : activeStatus.likesCount + 1
                     });
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
                     activeStatus.hasLiked
                       ? 'bg-rose-600 text-white border-rose-500'
                       : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-white'
@@ -293,7 +323,7 @@ export const StatusUpdatesBar: React.FC<StatusUpdatesBarProps> = ({
                     onReplyToStatus(activeStatus.userName, activeStatus.content);
                     setActiveStatus(null);
                   }}
-                  className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+                  className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   <span>Chat</span>

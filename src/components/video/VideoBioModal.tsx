@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { VideoBio, UserProfile } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface VideoBioModalProps {
   isOpen: boolean;
@@ -392,7 +391,6 @@ export const VideoBioModal: React.FC<VideoBioModalProps> = ({
                       <button
                         onClick={() => {
                           setShowTranscript(!showTranscript);
-                          speechService.speak(currentVideoBio.transcript);
                         }}
                         className="px-2.5 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1"
                       >
@@ -420,12 +418,6 @@ export const VideoBioModal: React.FC<VideoBioModalProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 Verified Video Bio Transcript & Captions
               </span>
-              <button
-                onClick={() => speechService.speak(currentVideoBio.transcript)}
-                className="text-[10px] text-indigo-400 hover:text-indigo-300 underline font-semibold"
-              >
-                Read Transcript Aloud
-              </button>
             </div>
             <p className="text-xs text-neutral-300 leading-relaxed bg-black/40 p-3 rounded-xl border border-neutral-800">
               "{currentVideoBio.transcript}"

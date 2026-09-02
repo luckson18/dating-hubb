@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { AccessibilitySettings, ContrastMode, TextScale } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface AccessibilityModalProps {
   isOpen: boolean;
@@ -78,8 +77,6 @@ export const AccessibilityModal: React.FC<AccessibilityModalProps> = ({
     { command: '"Like" or "Yes" or "Love"', action: 'Likes the current profile (Swipes Right)' },
     { command: '"Pass" or "Next" or "No"', action: 'Passes to next profile (Swipes Left)' },
     { command: '"Super Like" or "Star"', action: 'Sends a priority Super Like to the profile' },
-    { command: '"Read Bio" or "Tell me about them"', action: 'Screen reader reads the full bio, attributes, and tags aloud' },
-    { command: '"Stop" or "Quiet"', action: 'Immediately stops speech synthesizer narration' },
     { command: '"Video Bio" or "Play Video"', action: 'Opens and plays the user’s video introduction' },
     { command: '"Filter" or "Search Filters"', action: 'Opens match filters (proximity, religion, education, etc.)' },
     { command: '"High Contrast" or "Contrast"', action: 'Cycles between high-contrast color themes' },
@@ -222,44 +219,6 @@ export const AccessibilityModal: React.FC<AccessibilityModalProps> = ({
                 </div>
               </div>
 
-              {/* Speech Synthesizer Rate */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Volume2 className="w-4 h-4 text-rose-400" />
-                    Screen Reader Speech Speed ({settings.speechRate.toFixed(1)}x)
-                  </label>
-                  <button
-                    id="btn-test-speech-speed"
-                    onClick={() => {
-                      speechService.setSpeechRate(settings.speechRate);
-                      speechService.speak(`Testing speech synthesis rate at ${settings.speechRate.toFixed(1)} times speed.`);
-                    }}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium"
-                  >
-                    Test Voice Sample
-                  </button>
-                </div>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="1.7"
-                  step="0.1"
-                  value={settings.speechRate}
-                  onChange={(e) => {
-                    const rate = parseFloat(e.target.value);
-                    speechService.setSpeechRate(rate);
-                    onUpdateSettings({ speechRate: rate });
-                  }}
-                  className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-                <div className="flex justify-between text-[10px] text-neutral-500 mt-1">
-                  <span>0.7x (Slower)</span>
-                  <span>1.0x (Standard)</span>
-                  <span>1.7x (Fast)</span>
-                </div>
-              </div>
-
               {/* Multi-sensory Toggles */}
               <div className="space-y-3 pt-2">
                 <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -361,15 +320,6 @@ export const AccessibilityModal: React.FC<AccessibilityModalProps> = ({
                       <p className="text-xs font-mono font-bold text-indigo-400">{cmd.command}</p>
                       <p className="text-[11px] text-neutral-300 mt-0.5">{cmd.action}</p>
                     </div>
-                    <button
-                      onClick={() => {
-                        speechService.speak(cmd.action);
-                        audioHaptics.triggerVoiceCommandAcknowledge();
-                      }}
-                      className="text-[10px] px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded border border-neutral-700 font-medium"
-                    >
-                      Hear Action
-                    </button>
                   </div>
                 ))}
               </div>

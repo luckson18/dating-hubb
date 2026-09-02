@@ -47,8 +47,8 @@ export const SearchDescriptionBar: React.FC<SearchDescriptionBarProps> = ({
             id="input-description-search"
             type="text"
             role="searchbox"
-            aria-label="Search profiles by physical traits like dark complexion, height, background, or interests"
-            placeholder="Search description (e.g. dark complexion, 6ft, ASL, educator, vegan...)"
+            aria-label="Search users by name, username, physical traits, or interests"
+            placeholder="Search by name, @username, traits, or interests..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full bg-neutral-900/90 hover:bg-neutral-900 focus:bg-neutral-900 text-white placeholder-neutral-400 text-xs sm:text-sm pl-10 pr-10 py-2.5 rounded-2xl border border-neutral-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all outline-none shadow-inner"

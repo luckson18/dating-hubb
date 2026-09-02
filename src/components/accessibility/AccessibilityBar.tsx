@@ -2,8 +2,6 @@ import React from 'react';
 import { 
   Mic, 
   MicOff, 
-  Volume2, 
-  VolumeX, 
   Eye, 
   Type, 
   Vibrate, 
@@ -22,8 +20,8 @@ interface AccessibilityBarProps {
   onOpenHelpModal: () => void;
   isListening: boolean;
   onToggleListening: () => void;
-  isSpeaking: boolean;
-  onStopSpeaking: () => void;
+  isSpeaking?: boolean;
+  onStopSpeaking?: () => void;
   isBiometricLocked: boolean;
   onToggleBiometricLock: () => void;
 }
@@ -35,8 +33,6 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
   onOpenHelpModal,
   isListening,
   onToggleListening,
-  isSpeaking,
-  onStopSpeaking,
   isBiometricLocked,
   onToggleBiometricLock
 }) => {
@@ -81,19 +77,6 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
             <span className="hidden sm:inline">{isListening ? 'Voice Nav: ON' : 'Voice Nav'}</span>
             <span className="sm:hidden">{isListening ? 'Voice ON' : 'Voice'}</span>
           </button>
-
-          {/* Screen Reader Stop / Status */}
-          {isSpeaking && (
-            <button
-              id="btn-stop-audio-narration"
-              onClick={onStopSpeaking}
-              aria-label="Stop audio narration speaking"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white font-semibold animate-pulse"
-            >
-              <VolumeX className="w-3.5 h-3.5" />
-              <span>Silence Narration</span>
-            </button>
-          )}
 
           {/* Contrast Mode Switcher */}
           <button

@@ -7,7 +7,6 @@ import {
   Accessibility, 
   Send, 
   X, 
-  Volume2, 
   Check, 
   Heart, 
   ShieldCheck, 
@@ -23,7 +22,6 @@ import {
   ChevronRight,
   Info,
   ExternalLink,
-  VolumeX,
   Footprints,
   Eye,
   Ear
@@ -36,7 +34,6 @@ import {
   convertVenueToSharedLocation 
 } from '../../utils/dateNightEngine';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface DateNightModalProps {
   isOpen: boolean;
@@ -56,7 +53,6 @@ export const DateNightModal: React.FC<DateNightModalProps> = ({
   const plan: DateNightPlan = generateDateNightSuggestions(currentUser, matchedUser);
   const [selectedVenueId, setSelectedVenueId] = useState<string>(plan.suggestedVenues[0]?.id || '');
   const [customInviteNote, setCustomInviteNote] = useState('');
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [expandedVenueDetails, setExpandedVenueDetails] = useState<string | null>(null);
 
   const apiKey = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -77,26 +73,7 @@ export const DateNightModal: React.FC<DateNightModalProps> = ({
       : `Hey ${matchedUser.name.split(' ')[0]}! I found this accessible spot that matches our love for ${venue.matchedInterests.slice(0, 2).join(' & ')}. Would you like to check out ${venue.name} together? ✨`;
     
     onSendDateProposal(venue, defaultMsg);
-    speechService.speak(`Date invitation to ${venue.name} sent to ${matchedUser.name}!`);
     onClose();
-  };
-
-  const handleReadAloudOverview = () => {
-    if (isSpeaking) {
-      speechService.stopSpeaking();
-      setIsSpeaking(false);
-      return;
-    }
-
-    setIsSpeaking(true);
-    const text = `
-      Date Night Recommendations for you and ${matchedUser.name}. 
-      Based on your shared passions for ${plan.sharedInterests.join(', ')} and location in ${plan.primaryLocation}.
-      Venue 1: ${plan.suggestedVenues[0]?.name}, a ${plan.suggestedVenues[0]?.categoryLabel}. ${plan.suggestedVenues[0]?.whyItsGreatForYou}.
-      Venue 2: ${plan.suggestedVenues[1]?.name}, a ${plan.suggestedVenues[1]?.categoryLabel}. ${plan.suggestedVenues[1]?.whyItsGreatForYou}.
-      Venue 3: ${plan.suggestedVenues[2]?.name}, a ${plan.suggestedVenues[2]?.categoryLabel}. ${plan.suggestedVenues[2]?.whyItsGreatForYou}.
-    `;
-    speechService.speak(text, () => setIsSpeaking(false));
   };
 
   const getCategoryIcon = (category: AccessibleVenue['category']) => {
@@ -147,21 +124,7 @@ export const DateNightModal: React.FC<DateNightModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleReadAloudOverview}
-              title={isSpeaking ? "Stop Narration" : "Read Suggestions Aloud"}
-              className={`p-2 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
-                isSpeaking 
-                  ? 'bg-amber-500 text-black border-amber-400 animate-pulse font-bold' 
-                  : 'bg-neutral-800 text-neutral-300 hover:text-white border-neutral-700'
-              }`}
-            >
-              {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-sky-400" />}
-              <span className="hidden sm:inline">{isSpeaking ? 'Pause' : 'Listen'}</span>
-            </button>
-
-            <button
               onClick={() => {
-                if (isSpeaking) speechService.stopSpeaking();
                 onClose();
               }}
               className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-700 transition-colors"

@@ -18,8 +18,6 @@ import {
   Music, 
   Video, 
   ExternalLink, 
-  Volume2, 
-  VolumeX, 
   Search, 
   Filter, 
   CalendarDays, 
@@ -31,7 +29,6 @@ import {
 } from 'lucide-react';
 import { DatingRequest, UserProfile, DatingActivityType, AlternativeDateProposal } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 import { CreateDatingRequestModal } from './CreateDatingRequestModal';
 import { DeclineRequestModal } from './DeclineRequestModal';
 import { RescheduleRequestModal } from './RescheduleRequestModal';
@@ -67,7 +64,6 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeDeclineRequest, setActiveDeclineRequest] = useState<DatingRequest | null>(null);
   const [activeRescheduleRequest, setActiveRescheduleRequest] = useState<DatingRequest | null>(null);
-  const [speakingRequestId, setSpeakingRequestId] = useState<string | null>(null);
 
   // Counts
   const incomingCount = useMemo(() => 
@@ -116,29 +112,6 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
       return true;
     });
   }, [datingRequests, activeSubTab, selectedActivityFilter, searchQuery, currentUser.id]);
-
-  const handleReadAloud = (req: DatingRequest) => {
-    if (speakingRequestId === req.id) {
-      speechService.stopSpeaking();
-      setSpeakingRequestId(null);
-      return;
-    }
-
-    setSpeakingRequestId(req.id);
-    const isIncoming = req.recipientId === currentUser.id;
-    const partnerName = isIncoming ? req.senderName : req.recipientName;
-    const text = `
-      Date Invitation ${isIncoming ? 'from' : 'to'} ${partnerName}. 
-      Title: ${req.title}. 
-      Venue: ${req.venueName} in ${req.venueNeighborhood || 'San Francisco'}. 
-      Proposed time: ${req.proposedDateTime}. 
-      Status: ${req.status}. 
-      ${req.icebreakerMessage ? `Message: ${req.icebreakerMessage}` : ''}
-      ${req.accessibilityAccommodations.length > 0 ? `Accessibility accommodations: ${req.accessibilityAccommodations.join(', ')}.` : ''}
-    `;
-
-    speechService.speak(text, () => setSpeakingRequestId(null));
-  };
 
   const getActivityIcon = (type: DatingActivityType) => {
     switch (type) {
@@ -353,7 +326,6 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
             const isIncoming = req.recipientId === currentUser.id;
             const otherPartyName = isIncoming ? req.senderName : req.recipientName;
             const otherPartyAvatar = isIncoming ? req.senderAvatar : req.recipientAvatar;
-            const isSpeakingThis = speakingRequestId === req.id;
 
             return (
               <div
@@ -369,12 +341,18 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
                 {/* Header of the request */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={otherPartyAvatar}
-                      alt={otherPartyName}
-                      className="w-12 h-12 rounded-2xl object-cover border-2 border-rose-400 flex-shrink-0"
-                      referrerPolicy="no-referrer"
-                    />
+                    {otherPartyAvatar ? (
+                      <img
+                        src={otherPartyAvatar}
+                        alt={otherPartyName}
+                        className="w-12 h-12 rounded-2xl object-cover border-2 border-rose-400 flex-shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-2xl bg-neutral-800 border-2 border-rose-400 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                        {otherPartyName.charAt(0)}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-white truncate">
@@ -390,25 +368,13 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
                         )}
                       </div>
                       <p className="text-xs text-neutral-400 truncate">
-                        {isIncoming ? (req.senderJob || 'Matched Partner') : 'Outgoing Invitation'} • {req.createdAt}
+                        {isIncoming ? (req.senderJob ? `${req.senderJob} • ` : '') : 'Outgoing Invitation • '}
+                        {req.createdAt}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Read Aloud Button */}
-                    <button
-                      onClick={() => handleReadAloud(req)}
-                      aria-label={isSpeakingThis ? "Stop reading date request" : "Read date request aloud"}
-                      className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                        isSpeakingThis 
-                          ? 'bg-indigo-600 border-indigo-400 text-white animate-pulse'
-                          : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'
-                      }`}
-                    >
-                      {isSpeakingThis ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    </button>
-
                     {/* Status Pill */}
                     <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
                       req.status === 'accepted'
@@ -578,7 +544,6 @@ export const DatingRequestsHub: React.FC<DatingRequestsHubProps> = ({
                         <button
                           onClick={() => {
                             audioHaptics.triggerMatchCelebration();
-                            speechService.speak(`Date invitation accepted! You and ${req.senderName} are meeting at ${req.venueName}.`);
                             onAcceptRequest(req);
                           }}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-bold shadow-lg shadow-emerald-950/50 cursor-pointer transition-transform hover:scale-105 active:scale-95"

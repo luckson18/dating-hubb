@@ -5,7 +5,6 @@ import {
   ShieldAlert,
   Send, 
   Mic, 
-  Volume2, 
   Clock, 
   Eye, 
   EyeOff, 
@@ -34,7 +33,6 @@ import { SmartOpenerModal } from '../discovery/SmartOpenerModal';
 import { SafetyCheckModal } from '../security/SafetyCheckModal';
 import { AccessibleVenue, convertVenueToSharedLocation } from '../../utils/dateNightEngine';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 import { draftSyncService, SyncServiceState } from '../../services/draftSyncService';
 
 interface ChatViewProps {
@@ -209,35 +207,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
-  const readMessageAloud = (msg: Message, senderName: string) => {
-    const isMe = msg.senderId === 'user-me';
-    let statusText = '';
-    if (isMe) {
-      const st = msg.status || (msg.read ? 'read' : 'delivered');
-      if (st === 'queued') {
-        statusText = ' (Status: Queued in offline drafts)';
-      } else if (st === 'syncing') {
-        statusText = ' (Status: Auto-syncing now)';
-      } else if (st === 'read') {
-        statusText = ` (Status: Seen by ${activeConv.participant.name}${msg.readAt ? ` at ${msg.readAt}` : ''})`;
-      } else if (st === 'delivered') {
-        statusText = ` (Status: Delivered to ${activeConv.participant.name}'s device)`;
-      } else {
-        statusText = ' (Status: Sent)';
-      }
-    }
-
-    if (msg.location) {
-      speechService.speak(`${senderName} shared a location: ${msg.location.placeName}, ${msg.location.address}.${statusText}`);
-      return;
-    }
-
-    const textToRead = msg.mediaType === 'voice' 
-      ? `Voice note from ${senderName}: ${msg.voiceTranscript || 'Voice recording'}${statusText}`
-      : `${senderName} said: ${msg.text}${statusText}`;
-    speechService.speak(textToRead);
-  };
-
   // Filtered conversations
   const filteredConversations = conversations.filter(c => {
     if (filterTab === 'unread') return c.unreadCount > 0;
@@ -378,12 +347,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   }`}
                 >
                   <div className="relative flex-shrink-0">
-                    <img
-                      src={conv.participant.photos[0]}
-                      alt={conv.participant.name}
-                      className="w-12 h-12 rounded-full object-cover border border-neutral-700"
-                      referrerPolicy="no-referrer"
-                    />
+                    {conv.participant.photos[0] ? (
+                      <img
+                        src={conv.participant.photos[0]}
+                        alt={conv.participant.name}
+                        className="w-12 h-12 rounded-full object-cover border border-neutral-700"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-sm font-bold text-neutral-200">
+                        {conv.participant.name.charAt(0)}
+                      </div>
+                    )}
                     {conv.unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center animate-pulse">
                         {conv.unreadCount}
@@ -455,12 +430,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <ChevronLeft className="w-4 h-4" />
                 </button>
               )}
-              <img
-                src={activeConv.participant.photos[0]}
-                alt={activeConv.participant.name}
-                className="w-10 h-10 rounded-full object-cover border border-indigo-500"
-                referrerPolicy="no-referrer"
-              />
+              {activeConv.participant.photos[0] ? (
+                <img
+                  src={activeConv.participant.photos[0]}
+                  alt={activeConv.participant.name}
+                  className="w-10 h-10 rounded-full object-cover border border-indigo-500"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-neutral-800 border border-indigo-500 flex items-center justify-center text-sm font-bold text-neutral-200">
+                  {activeConv.participant.name.charAt(0)}
+                </div>
+              )}
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                   {activeConv.participant.name}
@@ -578,15 +559,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         : 'bg-neutral-800 text-neutral-100 border border-neutral-700 rounded-bl-none'
                     }`}
                   >
-                    {/* Read Message Aloud Button */}
-                    <button
-                      onClick={() => readMessageAloud(msg, senderName)}
-                      aria-label="Read message aloud"
-                      className="absolute -right-8 top-2 p-1 text-neutral-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900/80 rounded-full cursor-pointer"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                    </button>
-
                     {/* Message Body (Location / Voice / Text) */}
                     {msg.location ? (
                       <div className="space-y-2">

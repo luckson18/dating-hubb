@@ -89,7 +89,7 @@ export interface DeviceLocationResult {
 /**
  * Gets real-time browser location or falls back safely
  */
-export async function getDeviceCurrentLocation(fallbackCity: string = 'San Francisco, CA'): Promise<DeviceLocationResult> {
+export async function getDeviceCurrentLocation(fallbackCity: string = ''): Promise<DeviceLocationResult> {
   return new Promise((resolve) => {
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -103,11 +103,10 @@ export async function getDeviceCurrentLocation(fallbackCity: string = 'San Franc
           });
         },
         () => {
-          // Fallback location (San Francisco Union Square / Mission District)
           resolve({
             lat: 37.7749,
             lng: -122.4194,
-            address: `Downtown Arts & Cafe District, ${fallbackCity}`,
+            address: fallbackCity ? `${fallbackCity} Area` : 'Coordinates Recorded',
             accuracyMeters: 25,
             isSimulatedFallback: true
           });
@@ -118,7 +117,7 @@ export async function getDeviceCurrentLocation(fallbackCity: string = 'San Franc
       resolve({
         lat: 37.7749,
         lng: -122.4194,
-        address: `Downtown Arts & Cafe District, ${fallbackCity}`,
+        address: fallbackCity ? `${fallbackCity} Area` : 'Coordinates Recorded',
         accuracyMeters: 50,
         isSimulatedFallback: true
       });

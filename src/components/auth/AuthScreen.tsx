@@ -11,7 +11,6 @@ import {
   Check, 
   ShieldCheck, 
   ArrowRight, 
-  Heart, 
   Fingerprint, 
   Trash2, 
   Key, 
@@ -21,10 +20,12 @@ import {
   Contrast,
   Type
 } from 'lucide-react';
-import hubbAppIcon from '../../assets/images/hubb-app-icon.jpg';
 import { authService } from '../../services/authService';
 import { audioHaptics } from '../../services/audioHaptics';
 import { speechService } from '../../services/speechService';
+import { HubbLogo } from '../common/HubbLogo';
+import { PhotoUploadInput } from '../common/PhotoUploadInput';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: UserProfile, rawPassword?: string, isNewLogin?: boolean) => void;
@@ -54,41 +55,69 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   
-  // Login Form Fields
-  const [identifier, setIdentifier] = useState('alex_rivera');
-  const [password, setPassword] = useState('InclusiveLove2026!');
+  // Login Form Fields (Clean initial state - zero fake prefill)
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Sign Up Form Fields
+  // Sign Up Form Fields (Clean initial state)
   const [signupName, setSignupName] = useState('');
   const [signupUsername, setSignupUsername] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-  const [signupPronouns, setSignupPronouns] = useState('they/them');
-  const [signupBadges, setSignupBadges] = useState<string[]>(['Screen Reader Advocate', 'Sensory-Friendly Ally']);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  const [signupPronouns, setSignupPronouns] = useState('');
+  const [signupPhotoUrl, setSignupPhotoUrl] = useState('');
+  const [signupPhotoDescription, setSignupPhotoDescription] = useState('');
+  const [signupBadges, setSignupBadges] = useState<string[]>([]);
 
   // UI / State
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [savedCredentials, setSavedCredentials] = useState<SavedCredential[]>([]);
   const [activeQuickTab, setActiveQuickTab] = useState<'form' | 'saved'>('form');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  // Load saved credentials on mount
+  // Load saved credentials on mount without auto-filling the manual input fields
   useEffect(() => {
     const list = authService.getSavedCredentials();
     setSavedCredentials(list);
-    if (list.length > 0) {
-      // Auto-suggest the first saved account username/email
-      setIdentifier(list[0].username || list[0].email);
-      setPassword(list[0].passwordRaw || 'InclusiveLove2026!');
-    }
   }, []);
+
+  const handlePasswordResetSuccess = (email: string, newPasswordRaw: string, resetUser?: UserProfile) => {
+    setIdentifier(email);
+    setPassword(newPasswordRaw);
+    setSuccessNotice(`Password reset successfully! Logged in with ${email}.`);
+    
+    // Auto-login or prefill for immediate seamless entry
+    if (resetUser) {
+      setTimeout(() => {
+        onLoginSuccess(resetUser, newPasswordRaw, false);
+      }, 500);
+    } else {
+      const refreshed = authService.getSavedCredentials();
+      setSavedCredentials(refreshed);
+    }
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (!identifier.trim()) {
+      setErrorMessage('Please enter your username or email address.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Please enter your account password.');
+      return;
+    }
+
     setIsLoading(true);
     audioHaptics.triggerNavigationClick();
 
@@ -97,8 +126,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         identifier,
         password,
         rememberMe,
-        availableProfiles,
-        currentUser
+        availableProfiles
       );
 
       setIsLoading(false);
@@ -107,10 +135,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         onLoginSuccess(result.user, result.rawPassword, true);
       } else {
         audioHaptics.triggerPass();
-        setErrorMessage(result.message || 'Unable to log in. Please check your credentials.');
-        speechService.speak(result.message || 'Login failed. Please verify your username or email.');
+        setErrorMessage(result.message || 'Unable to sign in. Please verify your credentials or create a new account.');
+        speechService.speak(result.message || 'Login failed. Please check your credentials.');
       }
-    }, 400);
+    }, 350);
   };
 
   const handleSignupSubmit = (e: React.FormEvent) => {
@@ -147,6 +175,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         username: signupUsername,
         email: signupEmail,
         password: signupPassword,
+        photoUrl: signupPhotoUrl,
+        photoDescription: signupPhotoDescription,
         pronouns: signupPronouns,
         accessibilityBadges: signupBadges,
       });
@@ -156,7 +186,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         audioHaptics.triggerMatch();
         onLoginSuccess(result.user, result.rawPassword, true);
       }
-    }, 450);
+    }, 400);
   };
 
   const handleQuickLoginSaved = (cred: SavedCredential) => {
@@ -166,10 +196,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setTimeout(() => {
       const result = authService.authenticate(
         cred.username || cred.email,
-        cred.passwordRaw || 'SecurePassword2026!',
+        cred.passwordRaw || '',
         true,
-        availableProfiles,
-        currentUser
+        availableProfiles
       );
 
       setIsLoading(false);
@@ -179,7 +208,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       } else {
         setErrorMessage('Quick login failed. Please enter credentials manually.');
       }
-    }, 300);
+    }, 250);
   };
 
   const handleRemoveSavedCred = (e: React.MouseEvent, id: string) => {
@@ -187,20 +216,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     authService.removeSavedCredential(id);
     setSavedCredentials(prev => prev.filter(c => c.id !== id));
     audioHaptics.triggerTap();
-  };
-
-  const handleSelectDemoAccount = (demoId: 'alex' | 'maya' | 'marcus') => {
-    audioHaptics.triggerTap();
-    if (demoId === 'alex') {
-      setIdentifier('alex_rivera');
-      setPassword('InclusiveLove2026!');
-    } else if (demoId === 'maya') {
-      setIdentifier('maya_chen');
-      setPassword('MatchaSound2026!');
-    } else if (demoId === 'marcus') {
-      setIdentifier('marcus_adebayo');
-      setPassword('GardenRun2026!');
-    }
   };
 
   const toggleSignupBadge = (badge: string) => {
@@ -217,7 +232,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-rose-700/10 blur-[100px] pointer-events-none rounded-full" />
 
       {/* Top Accessibility Bar */}
-      <header className="w-full max-w-lg flex items-center justify-between z-20 pb-4 pt-1">
+      <header className="w-full max-w-md flex items-center justify-between z-20 pb-4 pt-1">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-bold text-neutral-400 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
@@ -235,7 +250,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onUpdateAccessibility({ contrastMode: next });
               audioHaptics.triggerTap();
             }}
-            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer"
             aria-label={`Toggle contrast mode. Current: ${accessibilitySettings.contrastMode}`}
             title="High Contrast Mode"
           >
@@ -250,7 +265,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onUpdateAccessibility({ textScale: next });
               audioHaptics.triggerTap();
             }}
-            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer"
             aria-label={`Toggle text scale. Current: ${accessibilitySettings.textScale}`}
             title="Text Size"
           >
@@ -264,7 +279,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onUpdateAccessibility({ audioCuesEnabled: next });
               audioHaptics.setPreferences(next, accessibilitySettings.hapticEnabled);
             }}
-            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer"
             aria-label={`Toggle sound cues. Current: ${accessibilitySettings.audioCuesEnabled ? 'Enabled' : 'Disabled'}`}
             title="Sound Feedback"
           >
@@ -278,41 +293,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </header>
 
       {/* Main Authentication Card */}
-      <main className="w-full max-w-md bg-neutral-900/90 border border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 backdrop-blur-xl relative z-10 space-y-6">
+      <main className="w-full max-w-md bg-neutral-900/95 border border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 backdrop-blur-xl relative z-10 space-y-6">
         
-        {/* App Logo & Branding Section */}
+        {/* App Vector Logo & Branding Section */}
         <div className="flex flex-col items-center text-center space-y-3">
-          <div className="relative group cursor-pointer" onClick={() => audioHaptics.triggerTap()}>
-            {/* Glowing Accent Aura behind Logo */}
-            <div className="absolute -inset-2 rounded-3xl bg-gradient-to-tr from-red-600/50 via-rose-500/30 to-amber-500/20 blur-md opacity-80 group-hover:opacity-100 transition duration-500 animate-pulse" />
-            
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-3xl p-1 bg-gradient-to-b from-red-500/40 via-red-950/80 to-neutral-950 border border-red-500/50 shadow-2xl shadow-red-950/90 overflow-hidden flex items-center justify-center">
-              <img
-                src={hubbAppIcon}
-                alt="hubb application logo"
-                className="w-full h-full object-cover rounded-2xl transition-transform duration-500 group-hover:scale-105"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+          <div className="group cursor-pointer" onClick={() => audioHaptics.triggerTap()}>
+            <HubbLogo size="xl" showBadge={true} />
           </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-1.5">
-                hubb
-              </h1>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-950/90 text-rose-300 border border-rose-500/40">
-                Universal
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-neutral-400 font-medium">
-              Inclusive, accessible & meaningful connections
-            </p>
-          </div>
+          <p className="text-xs text-neutral-400 font-medium">
+            Inclusive, accessible & meaningful connections
+          </p>
         </div>
 
         {/* Mode Switcher Tabs (Sign In / Sign Up) */}
-        <div className="grid grid-cols-2 p-1 bg-neutral-950/80 rounded-2xl border border-neutral-800 text-xs font-bold">
+        <div className="grid grid-cols-2 p-1 bg-neutral-950 rounded-2xl border border-neutral-800 text-xs font-bold">
           <button
             type="button"
             onClick={() => {
@@ -320,7 +314,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               setErrorMessage(null);
               audioHaptics.triggerTap();
             }}
-            className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'login'
                 ? 'bg-rose-600 text-white shadow-md shadow-rose-950/60 font-black'
                 : 'text-neutral-400 hover:text-white'
@@ -337,7 +331,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               setErrorMessage(null);
               audioHaptics.triggerTap();
             }}
-            className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'signup'
                 ? 'bg-rose-600 text-white shadow-md shadow-rose-950/60 font-black'
                 : 'text-neutral-400 hover:text-white'
@@ -366,25 +360,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             {/* Quick Toggle: Form vs Saved Accounts (if any exist) */}
             {savedCredentials.length > 0 && (
               <div className="flex items-center justify-between text-xs pb-1 border-b border-neutral-800/80">
-                <span className="text-neutral-400 font-medium">Choose Login Method:</span>
+                <span className="text-neutral-400 font-medium">Login Method:</span>
                 <div className="flex items-center gap-1 bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
                   <button
                     type="button"
                     onClick={() => setActiveQuickTab('form')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                       activeQuickTab === 'form'
-                        ? 'bg-neutral-800 text-white shadow-xs'
+                        ? 'bg-neutral-800 text-white'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
-                    Username/Email
+                    Credentials
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveQuickTab('saved')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
                       activeQuickTab === 'saved'
-                        ? 'bg-neutral-800 text-rose-300 shadow-xs'
+                        ? 'bg-neutral-800 text-rose-300'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
@@ -400,7 +394,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <div className="space-y-2.5">
                 <div className="text-xs text-neutral-300 font-medium flex items-center gap-1.5">
                   <Fingerprint className="w-3.5 h-3.5 text-rose-400" />
-                  <span>1-Tap Sign In with Saved Credentials:</span>
+                  <span>1-Tap Sign In with Saved Accounts:</span>
                 </div>
 
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -408,15 +402,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     <div
                       key={cred.id}
                       onClick={() => handleQuickLoginSaved(cred)}
-                      className="group flex items-center justify-between p-3 rounded-2xl bg-neutral-950/80 hover:bg-neutral-800/80 border border-neutral-800 hover:border-rose-500/50 transition-all cursor-pointer shadow-sm"
+                      className="group flex items-center justify-between p-3 rounded-2xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-rose-500/50 transition-all cursor-pointer shadow-sm"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={cred.avatar}
-                          alt={cred.name}
-                          className="w-10 h-10 rounded-full object-cover border border-rose-500/40"
-                          referrerPolicy="no-referrer"
-                        />
+                        {cred.avatar ? (
+                          <img
+                            src={cred.avatar}
+                            alt={cred.name}
+                            className="w-10 h-10 rounded-full object-cover border border-rose-500/40"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700">
+                            <User className="w-5 h-5" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-white group-hover:text-rose-200 truncate">
                             {cred.name}
@@ -437,7 +437,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                        <span className="p-1.5 rounded-xl bg-rose-950/80 text-rose-300 group-hover:bg-rose-600 group-hover:text-white border border-rose-500/40 transition-all">
+                        <span className="p-1.5 rounded-xl bg-rose-950 text-rose-300 group-hover:bg-rose-600 group-hover:text-white border border-rose-500/40 transition-all">
                           <ArrowRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
@@ -464,7 +464,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       <User className="w-3.5 h-3.5 text-rose-400" />
                       Username or Email Address
                     </span>
-                    <span className="text-[10px] text-neutral-500 font-normal">e.g. @alex_rivera</span>
                   </label>
                   <div className="relative">
                     <input
@@ -474,8 +473,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoComplete="username"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="username or user@hubb.app"
-                      className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all pl-10"
+                      placeholder="Enter username or email address"
+                      className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all pl-10"
                     />
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
                       {identifier.includes('@') ? (
@@ -485,27 +484,35 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       )}
                     </div>
                   </div>
-                  <p className="text-[10px] text-neutral-400 pl-1">
-                    Sign in using your hubb username (with or without @) or your email.
-                  </p>
                 </div>
 
-                {/* Password Field with Show/Hide Toggle */}
+                {/* Success Notice Box */}
+                {successNotice && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs flex items-start gap-2 animate-fadeIn">
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <span>{successNotice}</span>
+                  </div>
+                )}
+
+                {/* Password Field with Show/Hide Toggle (show password on login) */}
                 <div className="space-y-1.5">
-                  <label htmlFor="auth-password" className="text-xs font-bold text-neutral-300 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="auth-password" className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-rose-400" />
-                      Password
-                    </span>
+                      <span>Password</span>
+                    </label>
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-[10px] text-rose-300 hover:text-rose-200 flex items-center gap-1"
+                      id="btn-forgot-password-link"
+                      onClick={() => {
+                        setShowForgotPassword(true);
+                        audioHaptics.triggerNavigationClick();
+                      }}
+                      className="text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer hover:underline"
                     >
-                      {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      <span>{showPassword ? 'Hide' : 'Show'}</span>
+                      Forgot password?
                     </button>
-                  </label>
+                  </div>
                   <div className="relative">
                     <input
                       id="auth-password"
@@ -514,12 +521,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all pl-10 pr-10"
+                      placeholder="Enter your account password"
+                      className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all pl-10 pr-12"
                     />
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
                       <Key className="w-4 h-4 text-amber-400" />
                     </div>
+                    {/* Show Password Toggle Button */}
+                    <button
+                      type="button"
+                      id="btn-toggle-show-password"
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                        audioHaptics.triggerTap();
+                      }}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      title={showPassword ? "Hide password" : "Show password"}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-neutral-400 hover:text-rose-300 cursor-pointer transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-rose-400" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-neutral-400 hover:text-white" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -532,7 +557,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 rounded border-neutral-700 bg-neutral-950 text-rose-600 focus:ring-rose-500 accent-rose-600 cursor-pointer"
                     />
-                    <span>Remember on this device</span>
+                    <span>Remember me on this device</span>
                   </label>
 
                   <span className="text-[11px] text-neutral-400">Encrypted Local Vault</span>
@@ -559,43 +584,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </form>
             )}
 
-            {/* Quick Demo Test Profiles */}
-            <div className="pt-3 border-t border-neutral-800/80 space-y-2">
-              <span className="text-[11px] text-neutral-400 block font-semibold">
-                Quick Test Accounts (Click to load):
-              </span>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSelectDemoAccount('alex')}
-                  className="p-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-rose-500/40 text-[11px] font-bold text-neutral-300 hover:text-white transition-all text-center truncate"
-                >
-                  @alex_rivera
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectDemoAccount('maya')}
-                  className="p-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-rose-500/40 text-[11px] font-bold text-neutral-300 hover:text-white transition-all text-center truncate"
-                >
-                  @maya_chen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectDemoAccount('marcus')}
-                  className="p-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 hover:border-rose-500/40 text-[11px] font-bold text-neutral-300 hover:text-white transition-all text-center truncate"
-                >
-                  @marcus_adebayo
-                </button>
-              </div>
-            </div>
-
           </div>
         )}
 
         {/* ======================= SIGN UP FORM ======================= */}
         {authMode === 'signup' && (
-          <form onSubmit={handleSignupSubmit} className="space-y-3.5">
+          <form onSubmit={handleSignupSubmit} className="space-y-4">
             
+            {/* User Profile Photo Adding */}
+            <PhotoUploadInput
+              currentPhotoUrl={signupPhotoUrl}
+              onPhotoSelected={(dataUrl, alt) => {
+                setSignupPhotoUrl(dataUrl);
+                if (alt) setSignupPhotoDescription(alt);
+              }}
+              onRemovePhoto={() => {
+                setSignupPhotoUrl('');
+                setSignupPhotoDescription('');
+              }}
+              label="Add Your Profile Photo"
+              showAltTextInput={false}
+              initialAltText={signupPhotoDescription}
+            />
+
             {/* Full Name */}
             <div className="space-y-1">
               <label htmlFor="signup-name" className="text-xs font-bold text-neutral-300">
@@ -608,7 +619,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 value={signupName}
                 onChange={(e) => setSignupName(e.target.value)}
                 placeholder="e.g. Jordan Taylor"
-                className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none transition-all"
+                className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none transition-all"
               />
             </div>
 
@@ -625,8 +636,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   required
                   value={signupUsername}
                   onChange={(e) => setSignupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  placeholder="jordan_taylor"
-                  className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
+                  placeholder="choose_username"
+                  className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
                 />
               </div>
 
@@ -641,8 +652,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   required
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
-                  placeholder="jordan@example.com"
-                  className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
+                  placeholder="your.email@example.com"
+                  className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
                 />
               </div>
             </div>
@@ -656,7 +667,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 id="signup-pronouns"
                 value={signupPronouns}
                 onChange={(e) => setSignupPronouns(e.target.value)}
-                className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
               >
                 <option value="they/them">they/them</option>
                 <option value="she/her">she/her</option>
@@ -667,63 +678,56 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </select>
             </div>
 
-            {/* Password & Confirm Password */}
+            {/* Password & Confirm Password (with Show/Hide Toggle) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="space-y-1">
                 <label htmlFor="signup-pwd" className="text-xs font-bold text-neutral-300">
                   Password
                 </label>
-                <input
-                  id="signup-pwd"
-                  type="password"
-                  required
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
-                />
+                <div className="relative">
+                  <input
+                    id="signup-pwd"
+                    type={showSignupPassword ? 'text' : 'password'}
+                    required
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 pr-9 text-xs text-white focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignupPassword(!showSignupPassword)}
+                    aria-label={showSignupPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-neutral-400 hover:text-white cursor-pointer"
+                  >
+                    {showSignupPassword ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1">
                 <label htmlFor="signup-confirm-pwd" className="text-xs font-bold text-neutral-300">
-                  Confirm
+                  Confirm Password
                 </label>
-                <input
-                  id="signup-confirm-pwd"
-                  type="password"
-                  required
-                  value={signupConfirmPassword}
-                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-neutral-950 border border-neutral-700/80 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Inclusivity & Accessibility Badges (Select all that apply) */}
-            <div className="space-y-1.5 pt-1">
-              <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5 text-rose-400" />
-                Accessibility & Community Badges
-              </span>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
-                {INCLUSIVITY_BADGES.map((b) => {
-                  const isSel = signupBadges.includes(b);
-                  return (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => toggleSignupBadge(b)}
-                      className={`text-[10px] px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
-                        isSel
-                          ? 'bg-rose-600 text-white border-rose-500 font-bold'
-                          : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
-                      }`}
-                    >
-                      {b}
-                    </button>
-                  );
-                })}
+                <div className="relative">
+                  <input
+                    id="signup-confirm-pwd"
+                    type={showSignupConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={signupConfirmPassword}
+                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-neutral-950 border border-neutral-700 focus:border-rose-500 rounded-2xl px-3.5 py-2.5 pr-9 text-xs text-white focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                    aria-label={showSignupConfirmPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-neutral-400 hover:text-white cursor-pointer"
+                  >
+                    {showSignupConfirmPassword ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -750,11 +754,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </main>
 
       {/* Accessible Footer */}
-      <footer className="w-full max-w-lg text-center pt-4 pb-2 z-20">
+      <footer className="w-full max-w-md text-center pt-4 pb-2 z-20">
         <p className="text-[11px] text-neutral-500">
-          hubb • Inclusive Dating • Encrypted Biometric & Offline Vault
+          hubb • Inclusive Dating • Encrypted Biometric & Offline Vault <br /> Naomi & Lucky
         </p>
       </footer>
+
+      {/* Forgot Password Reset Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onPasswordResetSuccess={handlePasswordResetSuccess}
+        initialIdentifier={identifier}
+      />
     </div>
   );
 };

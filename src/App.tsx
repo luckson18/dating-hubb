@@ -20,7 +20,6 @@ import {
 } from './types/dating';
 import { 
   CURRENT_USER, 
-  MOCK_PROFILES, 
   INITIAL_STATUS_UPDATES, 
   INITIAL_CONVERSATIONS, 
   INITIAL_NOTIFICATIONS,
@@ -57,6 +56,8 @@ import { SmartOpenerModal } from './components/discovery/SmartOpenerModal';
 import { AccessibleVenue, convertVenueToSharedLocation } from './utils/dateNightEngine';
 import { ChatView } from './components/messages/ChatView';
 import { MyProfileEditor } from './components/profile/MyProfileEditor';
+import { SettingsView } from './components/settings/SettingsView';
+import { AdminDatabasePanel } from './components/admin/AdminDatabasePanel';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { SaveCredentialsModal } from './components/auth/SaveCredentialsModal';
@@ -113,9 +114,38 @@ export default function App() {
   const [recentExpressedInterest, setRecentExpressedInterest] = useState<RecentInterestState | null>(null);
 
   // --- Core Application State ---
-  const [currentUser, setCurrentUser] = useState<UserProfile>(CURRENT_USER);
-  const [profiles, setProfiles] = useState<UserProfile[]>(MOCK_PROFILES);
-  const [statusUpdates, setStatusUpdates] = useState<StatusUpdate[]>(INITIAL_STATUS_UPDATES);
+  const storedSession = authService.getStoredSession();
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    return storedSession?.user || CURRENT_USER;
+  });
+  const [profiles, setProfiles] = useState<UserProfile[]>(() => {
+    const all = authService.getRegisteredUsers();
+    return all.filter(u => u.id !== (storedSession?.user?.id || CURRENT_USER.id));
+  });
+  const [statusUpdates, setStatusUpdates] = useState<StatusUpdate[]>(() => {
+    try {
+      const raw = localStorage.getItem('hubb_status_updates_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(s => 
+            s && s.userId && 
+            !['user-elena-vance', 'user-marcus-chen', 'user-zara-al-mansoor', 'user-kofi-mensah', 'user-maya-lin'].includes(s.userId) &&
+            (!s.photoUrl || !s.photoUrl.includes('images.unsplash.com'))
+          );
+        }
+      }
+    } catch {}
+    return INITIAL_STATUS_UPDATES;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hubb_status_updates_v1', JSON.stringify(statusUpdates));
+    } catch (e) {
+      console.warn('Failed to persist status updates:', e);
+    }
+  }, [statusUpdates]);
   const [notifications, setNotifications] = useState<PartnerNotification[]>(INITIAL_NOTIFICATIONS);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [datingRequests, setDatingRequests] = useState<DatingRequest[]>(INITIAL_DATING_REQUESTS);
@@ -129,22 +159,30 @@ export default function App() {
 
   // --- Authentication State ---
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const session = authService.getStoredSession();
-    return session ? session.isAuthenticated : true;
+    return Boolean(storedSession && storedSession.isAuthenticated && storedSession.user);
   });
   const [isSaveCredentialsModalOpen, setIsSaveCredentialsModalOpen] = useState(false);
   const [pendingSaveCreds, setPendingSaveCreds] = useState<{ user: UserProfile; rawPassword?: string } | null>(null);
 
+  // Sync registered users from backend server and storage
+  const syncRegisteredUsers = useCallback(async () => {
+    try {
+      const users = await authService.syncRegisteredUsersFromServer();
+      const otherUsers = users.filter(u => u.id !== currentUser.id && u.username !== currentUser.username);
+      setProfiles(otherUsers);
+    } catch (e) {
+      console.warn('Sync users error:', e);
+    }
+  }, [currentUser.id, currentUser.username]);
+
+  useEffect(() => {
+    syncRegisteredUsers();
+  }, [syncRegisteredUsers]);
+
   // --- Geolocation & Google Maps Platform State ---
   const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
-  const [liveLocation, setLiveLocation] = useState<GeoCoordinates | null>(CURRENT_USER.coordinates || { lat: 37.7749, lng: -122.4194 });
-  const [reverseLocationData, setReverseLocationData] = useState<ReverseGeocodeResult | null>({
-    formattedAddress: 'San Francisco, CA 94103, USA',
-    displayName: 'San Francisco, CA',
-    city: 'San Francisco',
-    state: 'CA',
-    country: 'USA',
-  });
+  const [liveLocation, setLiveLocation] = useState<GeoCoordinates | null>(currentUser.coordinates || null);
+  const [reverseLocationData, setReverseLocationData] = useState<ReverseGeocodeResult | null>(null);
 
   const unreadNotificationCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
   const pendingDatingRequestsCount = useMemo(() => 
@@ -168,7 +206,9 @@ export default function App() {
           locationCity: rev.displayName || rev.city || prev.locationCity,
         }));
 
-        const updatedProfiles = await locationService.updateProfilesWithMatrix(coords, MOCK_PROFILES);
+        const allUsers = authService.getRegisteredUsers();
+        const otherUsers = allUsers.filter(u => u.id !== currentUser.id && u.username !== currentUser.username);
+        const updatedProfiles = await locationService.updateProfilesWithMatrix(coords, otherUsers);
         setProfiles(updatedProfiles);
       } catch (err) {
         console.warn('Initial geolocation setup error:', err);
@@ -387,7 +427,6 @@ export default function App() {
       likesCount: 0
     };
     setStatusUpdates([created, ...statusUpdates]);
-    speechService.speak("Status update published with your selected privacy audience.");
   };
 
   // Handle Like Status
@@ -407,10 +446,8 @@ export default function App() {
 
   // Handle Recall / Undo an Expressed Interest
   const handleRecallInterest = (statusId: string) => {
-    let targetUserName = '';
     setStatusUpdates(prev => prev.map(s => {
       if (s.id === statusId) {
-        targetUserName = s.userName;
         const currentPartners = s.interestedPartners || [];
         const updatedPartners = currentPartners.filter(p => p.userId !== currentUser.id && p.userId !== 'user-me');
         return {
@@ -428,7 +465,6 @@ export default function App() {
     }
 
     audioHaptics.triggerRecallInterest();
-    speechService.speak(`Interest expression recalled from ${targetUserName || 'post'}.`);
   };
 
   // Handle Express Interest on a post
@@ -503,29 +539,28 @@ export default function App() {
       const matchedProfile: UserProfile = profiles.find(p => p.id === userId || p.name.toLowerCase() === userName.toLowerCase()) || {
         id: userId,
         name: userName,
-        age: 28,
-        gender: 'Woman',
-        pronouns: 'she/her',
-        distanceKm: 2.5,
-        locationCity: 'San Francisco, CA',
+        age: 0,
+        gender: '',
+        pronouns: '',
+        distanceKm: 0,
+        locationCity: '',
         verified: true,
-        photos: [avatar],
-        bio: 'Connected via mutual status update interest.',
-        heightCm: 170,
-        heightFeet: `5'7"`,
-        weightKg: 60,
-        complexion: 'Warm Beige',
-        raceEthnicity: 'Multiracial / Mixed',
-        religion: 'Spiritual / Eclectic',
-        education: "Bachelor's Degree",
-        jobTitle: 'Creative Designer',
-        companyOrField: 'Design Studio',
-        nationality: 'American',
-        languages: ['English'],
-        hobbies: ['Art', 'Coffee', 'Music'],
-        lifestyle: { diet: 'Omnivore' },
-        relationshipGoal: 'Meaningful dating',
-        accessibilityBadges: ['Accessibility Ally'],
+        photos: avatar ? [avatar] : [],
+        bio: '',
+        heightCm: 0,
+        heightFeet: '',
+        complexion: '',
+        raceEthnicity: '',
+        religion: '',
+        education: '',
+        jobTitle: '',
+        companyOrField: '',
+        nationality: '',
+        languages: [],
+        hobbies: [],
+        lifestyle: {},
+        relationshipGoal: '',
+        accessibilityBadges: [],
         lastActive: 'Active now'
       };
 
@@ -999,23 +1034,32 @@ export default function App() {
     let convId = targetConv?.id;
 
     if (!targetConv) {
-      const recipientProfile = profiles.find(p => p.id === targetUserId) || {
+      const recipientProfile: UserProfile = profiles.find(p => p.id === targetUserId) || {
         id: targetUserId,
         name: newRequest.recipientName,
-        photos: [newRequest.recipientAvatar],
-        age: newRequest.recipientAge || 28,
-        bio: 'Matched Dater',
+        photos: newRequest.recipientAvatar ? [newRequest.recipientAvatar] : [],
+        age: newRequest.recipientAge || 0,
+        bio: '',
         verified: true,
-        gender: 'All',
-        pronouns: 'They/Them',
-        locationCity: 'San Francisco, CA',
-        heightFeet: "5'8\"",
-        jobTitle: 'Partner',
-        education: 'University',
-        hobbies: ['Art', 'Coffee'],
-        lifestyle: { smoking: false, drinking: 'socially', exercise: 'active', pets: 'dogs' },
-        accessibility: { mobility: 'Standard', visual: 'Standard', auditory: 'Standard', sensory: 'Sensory-Friendly' },
-        relationshipIntent: 'Long-term relationship'
+        gender: '',
+        pronouns: '',
+        locationCity: '',
+        distanceKm: 0,
+        heightFeet: '',
+        heightCm: 0,
+        complexion: '',
+        raceEthnicity: '',
+        religion: '',
+        education: '',
+        jobTitle: '',
+        companyOrField: '',
+        nationality: '',
+        languages: [],
+        hobbies: [],
+        lifestyle: {},
+        relationshipGoal: '',
+        accessibilityBadges: [],
+        lastActive: 'Active now'
       };
 
       convId = `conv-${Date.now()}`;
@@ -1110,6 +1154,9 @@ export default function App() {
   const handleLoginSuccess = (user: UserProfile, rawPassword?: string, isNewLogin: boolean = true) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
+    const allUsers = authService.getRegisteredUsers();
+    const otherUsers = allUsers.filter(u => u.id !== user.id && (u.username ? u.username.toLowerCase() !== (user.username || '').toLowerCase() : true));
+    setProfiles(otherUsers);
     speechService.speak(`Welcome back, ${user.name.split(' ')[0]}!`);
 
     if (isNewLogin) {
@@ -1128,7 +1175,7 @@ export default function App() {
         username: usernameClean,
         email: emailClean,
         name: pendingSaveCreds.user.name,
-        avatar: pendingSaveCreds.user.photos[0] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+        avatar: pendingSaveCreds.user.photos[0] || '',
         password: pendingSaveCreds.rawPassword,
         biometricEnabled,
       });
@@ -1509,7 +1556,14 @@ export default function App() {
         {activeTab === 'profile' && (
           <MyProfileEditor
             user={currentUser}
-            onSaveProfile={(updated) => setCurrentUser(updated)}
+            onSaveProfile={(updated) => {
+              setCurrentUser(updated);
+              authService.saveRegisteredUser(updated);
+              const session = authService.getStoredSession();
+              if (session) {
+                authService.setStoredSession({ ...session, user: updated });
+              }
+            }}
             onOpenVideoStudio={() => {
               setVideoModalUser(currentUser);
               setIsVideoModalOpen(true);
@@ -1520,6 +1574,71 @@ export default function App() {
               speechService.speak("Biometric vault locked.");
             }}
             onLogout={handleLogout}
+            onPostStatus={handlePostStatus}
+            onNavigateToFeed={() => {
+              setActiveTab('status');
+              audioHaptics.triggerNavigationClick();
+            }}
+            onOpenAdminDb={() => {
+              setActiveTab('admin-db');
+              audioHaptics.triggerNavigationClick();
+            }}
+          />
+        )}
+
+        {activeTab === 'admin-db' && (
+          <AdminDatabasePanel
+            currentUser={currentUser}
+            onClose={() => setActiveTab('discover')}
+            onRefreshAllUsers={() => {
+              syncRegisteredUsers();
+            }}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            currentUser={currentUser}
+            accessibilitySettings={accessibilitySettings}
+            onUpdateAccessibility={(patch) => setAccessibilitySettings(prev => ({ ...prev, ...patch }))}
+            isVoiceListening={isVoiceListening}
+            onToggleVoiceListening={toggleVoiceListening}
+            isBiometricLocked={isBiometricVaultLocked}
+            onToggleBiometricLock={() => {
+              if (isBiometricVaultLocked) {
+                setIsBiometricModalOpen(true);
+              } else {
+                setIsBiometricVaultLocked(true);
+                audioHaptics.triggerBiometricLocked();
+                speechService.speak("Profile biometric vault locked.");
+              }
+            }}
+            liveLocation={liveLocation}
+            reverseLocationData={reverseLocationData}
+            onOpenVoiceHelp={() => {
+              setAccessibilityModalTab('voice-commands');
+              setIsAccessibilityModalOpen(true);
+            }}
+            onOpenFullAccessibilityModal={() => {
+              setAccessibilityModalTab('settings');
+              setIsAccessibilityModalOpen(true);
+            }}
+            onOpenDraftsModal={() => setIsDraftsModalOpen(true)}
+            onOpenGeoModal={() => setIsGeoModalOpen(true)}
+            onNavigateToProfile={() => setActiveTab('profile')}
+            onLogout={handleLogout}
+            onSwitchAccount={(cred) => {
+              const result = authService.authenticate(
+                cred.username || cred.email,
+                cred.passwordRaw || '',
+                true,
+                profiles
+              );
+              if (result.success && result.user) {
+                setCurrentUser(result.user);
+                audioHaptics.triggerMatch();
+              }
+            }}
           />
         )}
       </main>
@@ -1601,17 +1720,19 @@ export default function App() {
       )}
 
       {/* Create Status Update Modal */}
-      <CreateStatusModal
-        isOpen={isCreateStatusOpen}
-        onClose={() => {
-          setIsCreateStatusOpen(false);
-          setEditingStatusDraft(null);
-        }}
-        onPostStatus={handlePostStatus}
-        currentUserName={currentUser.name}
-        currentUserAvatar={currentUser.photos[0]}
-        initialDraft={editingStatusDraft}
-      />
+      {isCreateStatusOpen && (
+        <CreateStatusModal
+          isOpen={isCreateStatusOpen}
+          onClose={() => {
+            setIsCreateStatusOpen(false);
+            setEditingStatusDraft(null);
+          }}
+          onPostStatus={handlePostStatus}
+          currentUserName={currentUser.name}
+          currentUserAvatar={currentUser.photos[0]}
+          initialDraft={editingStatusDraft}
+        />
+      )}
 
       {/* Interested Partners Modal (Viewer for post authors/viewers) */}
       {activeInterestedModalStatus && (
@@ -1717,6 +1838,7 @@ export default function App() {
         onClose={() => setIsGeoModalOpen(false)}
         currentLocation={liveLocation}
         onLocationUpdated={handleLocationUpdatedFromModal}
+        availableProfiles={profiles}
       />
 
       {/* Undo / Recall Interest Floating Notification Toast */}

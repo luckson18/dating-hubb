@@ -91,11 +91,11 @@ class LocationService {
     } catch (err) {
       console.warn('Reverse geocoding error:', err);
       return {
-        formattedAddress: `${lat.toFixed(4)}, ${lng.toFixed(4)}, San Francisco, CA`,
-        displayName: 'San Francisco, CA',
-        city: 'San Francisco',
-        state: 'CA',
-        country: 'USA',
+        formattedAddress: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+        displayName: `${lat.toFixed(2)}°, ${lng.toFixed(2)}°`,
+        city: '',
+        state: '',
+        country: '',
         source: 'fallback' as any,
       };
     }

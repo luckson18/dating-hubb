@@ -1,6 +1,6 @@
 {
   "name": "hubb - Inclusive & Accessible Dating",
-  "description": "hubb is an accessible dating app featuring dating requests and invitations, offline-first draft auto-saving, outbox sync, high-contrast modes, voice commands, screen reader narration, haptic feedback, video bios, biometric security, encrypted messaging, and granular status sharing.",
+  "description": "hubb is an accessible dating app featuring dating requests and invitations, offline-first draft auto-saving, outbox sync, high-contrast modes, voice commands, haptic feedback, video bios, biometric security, encrypted messaging, and granular status sharing.",
   "requestFramePermissions": [
     "camera",
     "microphone",

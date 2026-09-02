@@ -118,7 +118,7 @@ export const CreateDatingRequestModal: React.FC<CreateDatingRequestModalProps> =
     e.preventDefault();
 
     const finalVenueName = isCustomVenue && customVenueName.trim() ? customVenueName.trim() : selectedVenue.name;
-    const finalVenueAddress = isCustomVenue ? `${selectedRecipient.locationCity || 'San Francisco, CA'}` : selectedVenue.address;
+    const finalVenueAddress = isCustomVenue ? (selectedRecipient.locationCity || currentUser.locationCity || '') : selectedVenue.address;
     const finalDateTime = customDateTime.trim() ? customDateTime.trim() : proposedDateTime;
     const defaultNote = `Hi ${selectedRecipient.name.split(' ')[0]}! I'd love to invite you to ${finalVenueName} for our first date. Would you be free on ${finalDateTime}? ✨`;
 

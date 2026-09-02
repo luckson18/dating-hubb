@@ -9,7 +9,6 @@ import {
   Users, 
   Send, 
   Clock, 
-  Volume2, 
   Copy, 
   Check, 
   ExternalLink, 
@@ -41,7 +40,6 @@ import {
   DeviceLocationResult
 } from '../../utils/safetyCheckEngine';
 import { audioHaptics } from '../../services/audioHaptics';
-import { speechService } from '../../services/speechService';
 
 interface SafetyCheckModalProps {
   isOpen: boolean;
@@ -69,10 +67,10 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
   const [editableMessage, setEditableMessage] = useState<string>('');
   
   // Location detection state
-  const [locationName, setLocationName] = useState<string>(initialLocation?.placeName || 'Sightglass Coffee & Roastery');
-  const [address, setAddress] = useState<string>(initialLocation?.address || '270 7th St, San Francisco, CA 94103');
-  const [lat, setLat] = useState<number>(initialLocation?.lat || 37.7772);
-  const [lng, setLng] = useState<number>(initialLocation?.lng || -122.4082);
+  const [locationName, setLocationName] = useState<string>(initialLocation?.placeName || '');
+  const [address, setAddress] = useState<string>(initialLocation?.address || '');
+  const [lat, setLat] = useState<number>(initialLocation?.lat || 0);
+  const [lng, setLng] = useState<number>(initialLocation?.lng || 0);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [isGpsLive, setIsGpsLive] = useState<boolean>(Boolean(initialLocation));
@@ -115,11 +113,11 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
   const handleFetchLiveLocation = async () => {
     setIsLocating(true);
     try {
-      const res: DeviceLocationResult = await getDeviceCurrentLocation(partner.locationCity || 'San Francisco, CA');
+      const res: DeviceLocationResult = await getDeviceCurrentLocation(partner.locationCity || '');
       setLat(res.lat);
       setLng(res.lng);
       if (!initialLocation) {
-        setLocationName(res.isSimulatedFallback ? 'Downtown SF Safe Meetup Zone' : 'Live GPS Detected Location');
+        setLocationName(res.isSimulatedFallback ? (partner.locationCity ? `${partner.locationCity} Meetup Zone` : 'Selected Meetup Zone') : 'Live GPS Detected Location');
         setAddress(res.address);
       }
       setLocationAccuracy(res.accuracyMeters || 15);
@@ -163,7 +161,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
             clearInterval(timerRef.current);
             setIsTimerRunning(false);
             audioHaptics.triggerSafetyAlert();
-            speechService.speak('Safety check-in timer expired. Please confirm you are safe or alert your trusted contact.');
             return 0;
           }
           return prev - 1;
@@ -181,7 +178,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
     setTimerRemainingSeconds(mins * 60);
     setIsTimerRunning(true);
     audioHaptics.triggerSuccessCheck();
-    speechService.speak(`Safety check-in timer set for ${mins} minutes.`);
   };
 
   const handleStopTimer = () => {
@@ -221,7 +217,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
       setDispatchedLog(result.log);
       setDispatchSuccess(true);
       setLogs(loadSafetyLogs());
-      speechService.speak(`Safety check dispatched to ${activeContact.name}.`);
 
       // Auto-start safety timer if not running
       if (!isTimerRunning) {
@@ -240,14 +235,7 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
     navigator.clipboard.writeText(editableMessage);
     setCopiedSuccess(true);
     audioHaptics.triggerNavigationClick();
-    speechService.speak('Safety message copied to clipboard');
     setTimeout(() => setCopiedSuccess(false), 2200);
-  };
-
-  // Narrate Message
-  const handleNarrateMessage = () => {
-    audioHaptics.triggerNavigationClick();
-    speechService.speak(editableMessage);
   };
 
   // Add Contact Handler
@@ -273,7 +261,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
     setNewContactRelation('');
     setNewContactPhone('');
     audioHaptics.triggerSuccessCheck();
-    speechService.speak(`Added ${newContact.name} to trusted contacts.`);
   };
 
   // Delete Contact Handler
@@ -321,15 +308,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                speechService.speak(`Meetup Safety Check for your date with ${partner.name}. Select a trusted contact and send your live location.`);
-              }}
-              title="Read instructions out loud"
-              className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors cursor-pointer"
-            >
-              <Volume2 className="w-4 h-4" />
-            </button>
             <button
               onClick={() => {
                 audioHaptics.triggerNavigationClick();
@@ -650,16 +628,6 @@ export const SafetyCheckModal: React.FC<SafetyCheckModalProps> = ({
                   </label>
 
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleNarrateMessage}
-                      title="Read message out loud"
-                      className="px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-cyan-300 text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Volume2 className="w-3 h-3" />
-                      <span>Audio Preview</span>
-                    </button>
-
                     <button
                       type="button"
                       onClick={handleCopyMessage}

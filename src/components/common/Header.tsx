@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Sparkles, Sliders, ShieldCheck, User, Bell, FileText, WifiOff, Calendar, LogOut } from 'lucide-react';
+import { Bell, FileText, WifiOff, Calendar, LogOut, User, Database, ShieldCheck } from 'lucide-react';
 import { UserProfile } from '../../types/dating';
 import { audioHaptics } from '../../services/audioHaptics';
 import { draftSyncService, SyncServiceState } from '../../services/draftSyncService';
-import hubbAppIcon from '../../assets/images/hubb-app-icon.jpg';
+import { HubbLogo } from './HubbLogo';
 
 interface HeaderProps {
   currentUser: UserProfile;
@@ -29,6 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout
 }) => {
   const [syncState, setSyncState] = useState<SyncServiceState>(draftSyncService.getState());
+  const isAdmin = (currentUser.email && currentUser.email.toLowerCase() === 'simonchikondi8@gmail.com') ||
+                  (currentUser.username && currentUser.username.toLowerCase() === 'admin');
 
   useEffect(() => {
     const unsub = draftSyncService.subscribe((state) => {
@@ -38,32 +40,38 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="bg-neutral-950/80 border-b border-neutral-800/80 backdrop-blur-md px-4 py-3 sticky top-0 z-40">
+    <header className="bg-neutral-950/85 border-b border-neutral-800/80 backdrop-blur-md px-4 py-3 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand Logo & Inclusivity Badge */}
+        {/* Brand Vector Logo & Inclusivity Badge */}
         <div 
           onClick={() => onSelectTab('discover')}
-          className="flex items-center gap-2.5 cursor-pointer group select-none"
+          className="cursor-pointer group select-none"
         >
-          <div className="w-9 h-9 rounded-2xl overflow-hidden border border-red-500/50 shadow-md group-hover:scale-105 transition-transform bg-neutral-900 flex-shrink-0">
-            <img
-              src={hubbAppIcon}
-              alt="hubb logo"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div>
-            <h1 className="text-base font-black text-white tracking-tight flex items-center gap-1.5 leading-none">
-              hubb <span className="text-[10px] font-bold text-rose-400 bg-rose-950/80 border border-rose-500/40 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Universal</span>
-            </h1>
-            <p className="text-[10px] text-neutral-400 font-medium tracking-tight">
-              Accessible Dating
-            </p>
-          </div>
+          <HubbLogo size="md" showBadge={true} />
         </div>
 
         {/* Action Controls & User Mini Profile Badge */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Admin Cloud SQL Console Access */}
+          {isAdmin && (
+            <button
+              id="btn-header-admin-db"
+              onClick={() => {
+                audioHaptics.triggerNavigationClick();
+                onSelectTab('admin-db');
+              }}
+              title="Cloud SQL Database Management (Admin Only)"
+              className={`p-2 rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'admin-db'
+                  ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/40'
+                  : 'bg-purple-950/70 hover:bg-purple-900/80 border-purple-500/40 text-purple-300'
+              }`}
+            >
+              <Database className="w-4 h-4 text-purple-300" />
+              <span className="text-[11px] font-bold hidden sm:inline">SQL DB</span>
+            </button>
+          )}
+
           {/* Dating Requests Quick Button */}
           <button
             id="btn-header-dating-requests"
@@ -144,22 +152,30 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* User Mini Profile Avatar */}
           <button
             onClick={() => onSelectTab('profile')}
             className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 transition-colors cursor-pointer"
-            aria-label="View your profile"
+            aria-label="View or edit your profile"
           >
-            <img
-              src={currentUser.photos[0]}
-              alt={currentUser.name}
-              className="w-7 h-7 rounded-full object-cover border border-rose-500/60"
-              referrerPolicy="no-referrer"
-            />
+            {currentUser.photos && currentUser.photos[0] ? (
+              <img
+                src={currentUser.photos[0]}
+                alt={currentUser.name}
+                className="w-7 h-7 rounded-full object-cover border border-rose-500/60"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700">
+                <User className="w-3.5 h-3.5" />
+              </div>
+            )}
             <span className="text-xs font-semibold text-neutral-200 hidden sm:inline">
-              {currentUser.name.split(' ')[0]}
+              {currentUser.name ? currentUser.name.split(' ')[0] : 'Profile'}
             </span>
           </button>
 
+          {/* Logout / Switch User */}
           {onLogout && (
             <button
               id="btn-header-logout"
@@ -179,5 +195,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-
